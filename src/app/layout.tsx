@@ -1,10 +1,32 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SettingsProvider } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "MaDbotS",
-  description: "MaDbotS Prototyping Platform",
+  description: "Your personal AI chatbots",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MaDbotS",
+  },
+  icons: {
+    icon: "/icon-512.jpg",
+    apple: "/icon-512.jpg",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#141618" },
+  ],
 };
 
 // Applies the saved theme before first paint
@@ -26,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="bg-white text-zinc-950 flex flex-col min-h-screen antialiased select-none font-sans">
+      <body className="bg-[var(--ui-bg)] text-[var(--ui-text)] flex flex-col min-h-dvh antialiased select-none font-sans">
         <SettingsProvider>{children}</SettingsProvider>
       </body>
     </html>

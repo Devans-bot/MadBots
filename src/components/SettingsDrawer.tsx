@@ -106,7 +106,7 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
     <div
       ref={drawerRef}
       data-testid="settings-sheet"
-      className="absolute inset-x-0 top-[53px] bottom-0 z-40 flex flex-col bg-transparent overflow-visible select-none"
+      className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+53px)] bottom-0 z-40 flex flex-col bg-transparent overflow-visible select-none"
     >
       <div className="flex-1 min-h-0 flex flex-col rounded-t-[26px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
         <section

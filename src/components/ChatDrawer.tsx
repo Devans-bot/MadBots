@@ -198,7 +198,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     <div
       ref={drawerRef}
       data-testid="chat-sheet"
-      className="absolute inset-x-0 top-[53px] bottom-0 z-30 flex flex-col bg-transparent overflow-visible select-none"
+      className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+53px)] bottom-0 z-30 flex flex-col bg-transparent overflow-visible select-none"
     >
       {/* Neon gradient top frame */}
       <div className="flex-1 min-h-0 flex flex-col rounded-t-[26px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
@@ -554,7 +554,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   onChange={(e) => setText(e.target.value)}
                   disabled={loadingSkeleton}
                   placeholder={`Ask ${bot.name}...`}
-                  className="flex-1 bg-transparent border-0 text-[13.5px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 disabled:opacity-50"
+                  className="flex-1 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 disabled:opacity-50"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 />
                 <button

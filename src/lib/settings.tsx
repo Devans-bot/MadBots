@@ -26,6 +26,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     document.documentElement.classList.toggle("dark", s.theme === "dark");
+    const color = s.theme === "dark" ? "#1c1f24" : "#ffffff";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      m.setAttribute("content", color);
+    });
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
   }, [s, ready]);
 

@@ -336,7 +336,7 @@ export default function Home() {
                   value={newBotName}
                   onChange={(e) => setNewBotName(e.target.value)}
                   placeholder="e.g. Study Buddy"
-                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-sm text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
+                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
               </div>
 
@@ -351,7 +351,7 @@ export default function Home() {
                   value={newBotDescription}
                   onChange={(e) => setNewBotDescription(e.target.value)}
                   placeholder="Brief description of what this bot does..."
-                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-sm text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
+                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export default function Home() {
                   value={newBotApiKey}
                   onChange={(e) => setNewBotApiKey(e.target.value)}
                   placeholder="AIza... or AQ..."
-                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-sm text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
+                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
                 <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                   Note: Don&apos;t use the same API key for this bot — use a separate key to isolate rate limits.
@@ -383,7 +383,7 @@ export default function Home() {
                     value={newBotModel}
                     onChange={(e) => setNewBotModel(e.target.value)}
                     placeholder="Enter model ID"
-                    className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-xs font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
+                    className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                   />
                 </div>
                 <div>
@@ -395,7 +395,7 @@ export default function Home() {
                     value={newBotFallbackModel}
                     onChange={(e) => setNewBotFallbackModel(e.target.value)}
                     placeholder="Enter fallback model ID"
-                    className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-xs font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
+                    className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                   />
                 </div>
               </div>
@@ -410,7 +410,7 @@ export default function Home() {
                   value={newBotSoul}
                   onChange={(e) => setNewBotSoul(e.target.value)}
                   placeholder={`# Soul & System Instructions\n\n## 1. Identity\nDefine who this bot is, its tone, and persona...\n\n## 2. Scope & Rules\nList what topics it should answer and what to refuse...\n\n## 3. Response Format\nSpecify how replies should be structured...`}
-                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-xs font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff] resize-y"
+                  className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] font-mono text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff] resize-y"
                 />
               </div>
 
