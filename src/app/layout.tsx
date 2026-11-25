@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SettingsProvider } from "@/lib/settings";
+import { SplashScreen } from "@/components/SplashScreen";
 
 export const metadata: Metadata = {
   title: "MaDbotS",
@@ -29,8 +30,8 @@ export const viewport: Viewport = {
   ],
 };
 
-// Applies the saved theme before first paint
-const themeScript = `try{var s=JSON.parse(localStorage.getItem("madbots:settings")||"null");var d=s?s.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark")}catch(e){}`;
+// Applies the saved theme & background color before first paint so refresh/load matches UI mode
+const themeScript = `try{var s=JSON.parse(localStorage.getItem("madbots:settings")||"null");var d=s?s.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);document.documentElement.style.backgroundColor=d?"#141618":"#ffffff";var metas=document.querySelectorAll('meta[name="theme-color"]');metas.forEach(function(m){m.setAttribute("content",d?"#1c1f24":"#ffffff")})}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -49,7 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-[var(--ui-bg)] text-[var(--ui-text)] flex flex-col min-h-dvh antialiased select-none font-sans">
-        <SettingsProvider>{children}</SettingsProvider>
+        <SettingsProvider>
+          <SplashScreen />
+          {children}
+        </SettingsProvider>
       </body>
     </html>
   );
