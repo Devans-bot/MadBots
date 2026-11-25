@@ -27,7 +27,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       const saved = JSON.parse(localStorage.getItem("madbots:custom-bots") || "[]") as Bot[];
       const found = saved.find((b) => b.id === botId);
       if (found) setBot(found);
-    } catch {}
+    } catch { }
   }, [botId]);
 
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -48,7 +48,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
   useEffect(() => {
     try {
       setMsgs(JSON.parse(localStorage.getItem(key) || "[]"));
-    } catch {}
+    } catch { }
     setLoadingSkeleton(true);
     const timer = setTimeout(() => {
       setLoadingSkeleton(false);
@@ -155,14 +155,14 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       const d = await r.json();
       if (d.reply) reply = d.reply;
       if (d.verified) verified = true;
-    } catch {}
+    } catch { }
 
     const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified }];
     setMsgs(all);
     setBusy(false);
     try {
       localStorage.setItem(key, JSON.stringify(all.slice(-100)));
-    } catch {}
+    } catch { }
   };
 
   const copyText = (txt: string, idx: number) => {
@@ -175,22 +175,22 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     bot.id === "madrix-macros"
       ? ["100g oats & 300ml milk", "2 whole eggs and 150g cooked rice", "verify-macros"]
       : bot.id === "bhima-coach"
-      ? ["Desi Push/Pull/Legs split", "Calculate my 1RM (100kg x 5)", "High-protein vegetarian diet"]
-      : ["Explain Binary Search in C++", "Debug my Python loop", "OOP 4 pillars in JS"];
+        ? ["Desi Push/Pull/Legs split", "Calculate my 1RM (100kg x 5)", "High-protein vegetarian diet"]
+        : ["Explain Binary Search in C++", "Debug my Python loop", "OOP 4 pillars in JS"];
 
   const botRowBg =
     bot.id === "madrix-macros"
       ? "bg-[#ecfdf5]/85 dark:bg-emerald-500/12 border-l-[3px] border-l-emerald-500 backdrop-blur-md" // Faded green
       : bot.id === "bhima-coach"
-      ? "bg-[#fff7ed]/85 dark:bg-orange-500/12 border-l-[3px] border-l-orange-500 backdrop-blur-md" // Faded orange
-      : "bg-[#ebf3ff]/85 dark:bg-blue-500/12 border-l-[3px] border-l-[#0066ff] backdrop-blur-md"; // Faded blue
+        ? "bg-[#fff7ed]/85 dark:bg-orange-500/12 border-l-[3px] border-l-orange-500 backdrop-blur-md" // Faded orange
+        : "bg-[#ebf3ff]/85 dark:bg-blue-500/12 border-l-[3px] border-l-[#0066ff] backdrop-blur-md"; // Faded blue
 
   const botAccentColor =
     bot.id === "madrix-macros"
       ? "#10b981"
       : bot.id === "bhima-coach"
-      ? "#f97316"
-      : "#0066ff";
+        ? "#f97316"
+        : "#0066ff";
 
   const isTypingActive = text.trim().length > 0;
 
@@ -316,11 +316,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                     <article
                       key={idx}
                       data-testid={isUser ? "chat-box-user" : "chat-box-bot"}
-                      className={`group w-full flex items-start gap-3 p-1 rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left ${
-                        isUser
-                          ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-[3px] border-l-zinc-400 dark:border-l-zinc-500"
-                          : botRowBg
-                      }`}
+                      className={`group w-full flex items-start gap-3 p-1 rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left ${isUser
+                        ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-[3px] border-l-zinc-400 dark:border-l-zinc-500"
+                        : botRowBg
+                        }`}
                     >
                       {/* Left Circular Avatar */}
                       <div className="shrink-0 pt-0.5">
@@ -350,11 +349,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                         <div className="flex items-center justify-between w-full gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap leading-none">
                             <span
-                              className={`font-semibold text-[14px] leading-none ${
-                                isUser
-                                  ? "text-[var(--ui-text)]"
-                                  : "text-[#0066ff] dark:text-[#66a3ff]"
-                              }`}
+                              className={`font-semibold text-[14px] leading-none ${isUser
+                                ? "text-[var(--ui-text)]"
+                                : "text-[#0066ff] dark:text-[#66a3ff]"
+                                }`}
                             >
                               {isUser ? "You" : bot.name}
                             </span>
@@ -399,91 +397,91 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                           {(isUser ? msg.text : cleanReply(msg.text))
                             .split(/(```[\s\S]*?```)/g)
                             .map((segment, segIdx) => {
-                            if (segment.startsWith("```") && segment.endsWith("```")) {
-                              const lines = segment.slice(3, -3).split("\n");
-                              const lang = lines[0]?.trim() || "CODE";
-                              const codeBody = (lines[0]?.trim() ? lines.slice(1) : lines).join("\n").trim();
-                              return (
-                                <div
-                                  key={segIdx}
-                                  className="bg-[#f3f4f3] dark:bg-[#12151c] border border-[var(--ui-border)] rounded-lg overflow-hidden my-1"
-                                >
-                                  <div className="flex items-center justify-between px-3 py-1.5 bg-[#e8e8e7] dark:bg-[#191d26] border-b border-[var(--ui-border)]">
-                                    <span className="text-[10px] font-bold tracking-wider uppercase text-[var(--ui-muted)]">
-                                      {lang}
-                                    </span>
+                              if (segment.startsWith("```") && segment.endsWith("```")) {
+                                const lines = segment.slice(3, -3).split("\n");
+                                const lang = lines[0]?.trim() || "CODE";
+                                const codeBody = (lines[0]?.trim() ? lines.slice(1) : lines).join("\n").trim();
+                                return (
+                                  <div
+                                    key={segIdx}
+                                    className="bg-[#f3f4f3] dark:bg-[#12151c] border border-[var(--ui-border)] rounded-lg overflow-hidden my-1"
+                                  >
+                                    <div className="flex items-center justify-between px-3 py-1.5 bg-[#e8e8e7] dark:bg-[#191d26] border-b border-[var(--ui-border)]">
+                                      <span className="text-[10px] font-bold tracking-wider uppercase text-[var(--ui-muted)]">
+                                        {lang}
+                                      </span>
+                                    </div>
+                                    <pre className="font-mono text-[12px] leading-relaxed text-[var(--ui-text)] p-3 overflow-x-auto">
+                                      <code>{codeBody}</code>
+                                    </pre>
                                   </div>
-                                  <pre className="font-mono text-[12px] leading-relaxed text-[var(--ui-text)] p-3 overflow-x-auto">
-                                    <code>{codeBody}</code>
-                                  </pre>
+                                );
+                              }
+                              const trimmed = segment.trim();
+                              if (!trimmed) return null;
+                              return (
+                                <div key={segIdx} className="space-y-1">
+                                  {trimmed.split("\n").map((line, lineIdx) => {
+                                    const cleanLine = line.trimEnd();
+                                    if (!cleanLine.trim()) {
+                                      return <div key={lineIdx} className="h-1.5" />;
+                                    }
+
+                                    // Bullet line (- ... or • ...)
+                                    const bulletMatch = cleanLine.match(/^(\s*)[-*•]\s+(.*)$/);
+                                    if (bulletMatch) {
+                                      const indent = bulletMatch[1].length >= 2;
+                                      const body = bulletMatch[2];
+                                      const isSubtotal = /subtotal/i.test(body);
+                                      const colonIdx = body.indexOf(":");
+                                      return (
+                                        <div
+                                          key={lineIdx}
+                                          className={`flex items-start gap-2 ${indent ? "pl-4" : "pl-1.5"}`}
+                                        >
+                                          <span className="text-[var(--ui-muted)] select-none leading-relaxed">•</span>
+                                          <span className={isSubtotal ? "font-semibold" : ""}>
+                                            {colonIdx > 0 && colonIdx < 40 ? (
+                                              <>
+                                                <span className="font-medium text-[var(--ui-text)]">
+                                                  {body.slice(0, colonIdx + 1)}
+                                                </span>
+                                                <span>{body.slice(colonIdx + 1)}</span>
+                                              </>
+                                            ) : (
+                                              body
+                                            )}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    // Section heading line (e.g. "Meal 1:" or "Daily Total:" or "Daily Total")
+                                    const isSectionHeader =
+                                      /^(Meal\s+\d+.*|Daily Total.*|Workout.*|Day\s+\d+.*|Problem Breakdown.*|Solution.*|Complexity Check.*):?$/i.test(
+                                        cleanLine.trim()
+                                      ) || /^[A-Z][A-Za-z0-9\s\-/()]{1,42}:$/.test(cleanLine.trim());
+
+                                    if (isSectionHeader) {
+                                      return (
+                                        <div
+                                          key={lineIdx}
+                                          className="font-semibold text-[13.5px] text-[var(--ui-text)] pt-1"
+                                        >
+                                          {cleanLine.trim()}
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div key={lineIdx} className="whitespace-pre-wrap">
+                                        {cleanLine}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               );
-                            }
-                            const trimmed = segment.trim();
-                            if (!trimmed) return null;
-                            return (
-                              <div key={segIdx} className="space-y-1">
-                                {trimmed.split("\n").map((line, lineIdx) => {
-                                  const cleanLine = line.trimEnd();
-                                  if (!cleanLine.trim()) {
-                                    return <div key={lineIdx} className="h-1.5" />;
-                                  }
-
-                                  // Bullet line (- ... or • ...)
-                                  const bulletMatch = cleanLine.match(/^(\s*)[-*•]\s+(.*)$/);
-                                  if (bulletMatch) {
-                                    const indent = bulletMatch[1].length >= 2;
-                                    const body = bulletMatch[2];
-                                    const isSubtotal = /subtotal/i.test(body);
-                                    const colonIdx = body.indexOf(":");
-                                    return (
-                                      <div
-                                        key={lineIdx}
-                                        className={`flex items-start gap-2 ${indent ? "pl-4" : "pl-1.5"}`}
-                                      >
-                                        <span className="text-[var(--ui-muted)] select-none leading-relaxed">•</span>
-                                        <span className={isSubtotal ? "font-semibold" : ""}>
-                                          {colonIdx > 0 && colonIdx < 40 ? (
-                                            <>
-                                              <span className="font-medium text-[var(--ui-text)]">
-                                                {body.slice(0, colonIdx + 1)}
-                                              </span>
-                                              <span>{body.slice(colonIdx + 1)}</span>
-                                            </>
-                                          ) : (
-                                            body
-                                          )}
-                                        </span>
-                                      </div>
-                                    );
-                                  }
-
-                                  // Section heading line (e.g. "Meal 1:" or "Daily Total:" or "Daily Total")
-                                  const isSectionHeader =
-                                    /^(Meal\s+\d+.*|Daily Total.*|Workout.*|Day\s+\d+.*|Problem Breakdown.*|Solution.*|Complexity Check.*):?$/i.test(
-                                      cleanLine.trim()
-                                    ) || /^[A-Z][A-Za-z0-9\s\-/()]{1,42}:$/.test(cleanLine.trim());
-
-                                  if (isSectionHeader) {
-                                    return (
-                                      <div
-                                        key={lineIdx}
-                                        className="font-semibold text-[13.5px] text-[var(--ui-text)] pt-1"
-                                      >
-                                        {cleanLine.trim()}
-                                      </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <div key={lineIdx} className="whitespace-pre-wrap">
-                                      {cleanLine}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })}
+                            })}
                         </div>
                       </div>
                     </article>
