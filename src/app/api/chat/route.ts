@@ -67,20 +67,22 @@ export async function POST(req: Request) {
   // Specialized Skill Check: Macro-Chief's verify-macros
   if (bot.id === "madrix-macros") {
     const creds = getBotCredentials("madrix-macros");
-    const modelsToTry = Array.from(
-      new Set([creds.model, creds.fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean))
-    );
-    const skillResult = await runVerifyMacrosSkill(messages as Msg[], creds.key, modelsToTry);
-    if (skillResult.handled) {
-      const elapsed = Math.round(performance.now() - apiStartTime);
-      const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
-      return NextResponse.json({
-        reply: skillResult.reply,
-        verified: Boolean(skillResult.verified),
-        responseTime,
-        modelUsed: creds.model,
-        fallbackEvents: [],
-      });
+    if (creds.key) {
+      const modelsToTry = Array.from(
+        new Set([creds.model, creds.fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean))
+      );
+      const skillResult = await runVerifyMacrosSkill(messages as Msg[], creds.key, modelsToTry);
+      if (skillResult.handled) {
+        const elapsed = Math.round(performance.now() - apiStartTime);
+        const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+        return NextResponse.json({
+          reply: skillResult.reply,
+          verified: Boolean(skillResult.verified),
+          responseTime,
+          modelUsed: creds.model,
+          fallbackEvents: [],
+        });
+      }
     }
   }
 
