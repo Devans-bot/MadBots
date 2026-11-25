@@ -1,4 +1,4 @@
-import { getMacrosPrompt } from "./prompt";
+import { getMacrosPrompt, getCompactMacrosPrompt } from "./prompt";
 import { handleMacrosToolCall } from "./tools";
 import { cleanReply } from "@/lib/formatReply";
 
@@ -29,20 +29,36 @@ export const GROQ_MACROS_TOOLS = [
     function: {
       name: "update_personal_food_db",
       description:
-        "Updates or adds a food item in personal_food_macros.txt. Always preserve existing entries, tracking rules, and formatting.",
+        "Updates or adds a food item in personal_food_macros.txt with its nutritional values. Automatically preserves existing entries and tracking conventions.",
       parameters: {
         type: "object",
         properties: {
-          updatedContent: {
+          foodName: {
             type: "string",
-            description: "The complete updated text content for personal_food_macros.txt",
+            description: "Name of the food item (e.g. 'Roasted chana' or 'Aloo sabji')",
+          },
+          basis: {
+            type: "string",
+            description: "Measurement basis (e.g. '100 g', '100 ml', '1 egg', '1 roti')",
+          },
+          calories: {
+            type: "number",
+            description: "Calories in kcal",
+          },
+          protein: {
+            type: "number",
+            description: "Protein in grams",
+          },
+          notes: {
+            type: "string",
+            description: "Optional notes or tracking specifics",
           },
           summary: {
             type: "string",
-            description: "Brief summary of the food item added or updated",
+            description: "Brief summary of the addition or update",
           },
         },
-        required: ["updatedContent", "summary"],
+        required: ["foodName", "basis", "calories", "protein"],
       },
     },
   },
@@ -122,12 +138,13 @@ export async function callGroqMacroChief(
 
   const start = performance.now();
   const modelsToTry = Array.from(new Set((customModels || DEFAULT_MODELS).filter(Boolean)));
-  // Loads soul.md + personal_food_macros.txt + burger_king_selected_macros.txt
-  const systemPrompt = getMacrosPrompt();
+  // Load lean system prompt with tracking rules & personal food database (BK attached only if mentioned)
+  const recentText = messages.slice(-4).map((m) => m.text || m.content || "").join(" ");
+  const systemPrompt = getCompactMacrosPrompt(recentText);
 
   const conversationMessages: GroqApiMessage[] = [
     { role: "system", content: systemPrompt },
-    ...messages.slice(-20).map((m) => ({
+    ...messages.slice(-4).map((m) => ({
       role: (m.role === "model" || m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
       content: String(m.text || m.content || ""),
     })),
@@ -166,26 +183,23 @@ export async function callGroqMacroChief(
       // Execute Macro-Chief tool locally
       const toolResult = handleMacrosToolCall(toolCall.function.name, toolArgs);
 
-      const followUpMessages: GroqApiMessage[] = [
-        ...conversationMessages,
-        message,
-        {
-          role: "tool",
-          tool_call_id: toolCall.id,
-          name: toolCall.function.name,
-          content: JSON.stringify(toolResult),
-        },
-      ];
-
-      // Send tool result back to Groq for final formatted answer
-      const followUpRes = await callGroqCompletion(model, apiKey, followUpMessages);
-      if (followUpRes.ok) {
-        const finalMessage = followUpRes.data?.choices?.[0]?.message?.content || "";
+      // Return instant tool completion confirmation directly without sending an immediate
+      // redundant 3,500-token follow-up request that triggers Groq's 7,000 ITPM rate limit
+      if (toolResult && toolResult.success !== false) {
         const elapsed = Math.round(performance.now() - start);
         const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
         return {
           ok: true,
-          reply: cleanReply(finalMessage),
+          reply: `Done! ${toolResult.summary || "Database updated successfully."} Existing tracking rules and food entries are preserved.`,
+          responseTime,
+          modelUsed: model,
+        };
+      } else {
+        const elapsed = Math.round(performance.now() - start);
+        const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+        return {
+          ok: false,
+          reply: `Failed to update database: ${toolResult?.error || "Unknown error"}`,
           responseTime,
           modelUsed: model,
         };
@@ -193,20 +207,23 @@ export async function callGroqMacroChief(
     }
 
     const rawText = message.content || "";
-    const elapsed = Math.round(performance.now() - start);
-    const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
-    return {
-      ok: true,
-      reply: cleanReply(rawText),
-      responseTime,
-      modelUsed: model,
-    };
+    const cleaned = cleanReply(rawText);
+    if (cleaned.trim()) {
+      const elapsed = Math.round(performance.now() - start);
+      const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+      return {
+        ok: true,
+        reply: cleaned,
+        responseTime,
+        modelUsed: model,
+      };
+    }
   }
 
   const elapsed = Math.round(performance.now() - start);
   return {
     ok: false,
-    reply: `Groq Macro-Chief service error: ${lastError}`,
+    reply: `Groq Macro-Chief service error: ${lastError || "Empty response from all Groq models"}`,
     responseTime: elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`,
   };
 }

@@ -1,12 +1,20 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { BOTS, type Bot } from "@/lib/bots";
 import { cleanReply } from "@/lib/formatReply";
 import { useSettings } from "@/lib/settings";
 import { ChatSkeletonList } from "./ChatSkeletonList";
 
-type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean; responseTime?: string };
+type Msg = {
+  role: "user" | "model";
+  text: string;
+  t: number;
+  verified?: boolean;
+  responseTime?: string;
+  starred?: boolean;
+};
 
 interface ChatDrawerProps {
   botId: string;
@@ -31,12 +39,77 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
   }, [botId]);
 
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [loadingSkeleton, setLoadingSkeleton] = useState(true);
+  const [loadingSkeleton, setLoadingSkeleton] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string }>>([]);
+  const [mounted, setMounted] = useState(false);
+  const lastTapRef = useRef<{ [idx: number]: number }>({});
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showToast = (message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5500);
+  };
+
+  const toggleStar = (idx: number) => {
+    setMsgs((prev) => {
+      const target = prev[idx];
+      if (!target) return prev;
+      const willBeStarred = !target.starred;
+
+      const updated = prev.map((m, i) => {
+        if (i === idx) {
+          return { ...m, starred: willBeStarred };
+        }
+        // If starring a bot response, also star its corresponding user message
+        if (willBeStarred && target.role === "model" && i === idx - 1 && prev[i]?.role === "user") {
+          return { ...prev[i], starred: true };
+        }
+        // If starring a user prompt, also star its immediate reply if present
+        if (willBeStarred && target.role === "user" && i === idx + 1 && prev[i]?.role === "model") {
+          return { ...prev[i], starred: true };
+        }
+        return m;
+      });
+
+      // Persist ONLY starred messages in localStorage
+      try {
+        const starredOnly = updated.filter((m) => m.starred);
+        localStorage.setItem(key, JSON.stringify(starredOnly));
+      } catch { }
+
+      if (willBeStarred) {
+        showToast("⭐ Starred! Saved to your chat memory.");
+      } else {
+        showToast("☆ Unstarred message.");
+      }
+
+      return updated;
+    });
+  };
+
+  const handleDoubleTap = (idx: number) => {
+    const now = Date.now();
+    const last = lastTapRef.current[idx] || 0;
+    if (now - last < 350) {
+      toggleStar(idx);
+      lastTapRef.current[idx] = 0;
+    } else {
+      lastTapRef.current[idx] = now;
+    }
+  };
 
   const drawerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const dragStartYRef = useRef<number | null>(null);
   const dragDeltaYRef = useRef<number>(0);
@@ -44,16 +117,44 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
 
   const key = `madbots:chat:${bot.id}`;
 
-  // Load saved messages & run 2-second skeleton timer
+  // Dynamically resize textarea height to fit content (grows on Enter/wrap up to 3 lines, shrinks on delete)
   useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 38), 88);
+    el.style.height = `${nextHeight}px`;
+  }, [text]);
+
+  const scrollToBottom = (smooth = true) => {
+    const el = viewportRef.current;
+    if (!el) return;
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+  };
+
+  // Load only starred messages from storage on mount & run 1-second skeleton timer ONLY if there are starred messages
+  useEffect(() => {
+    let hasStarred = false;
     try {
-      setMsgs(JSON.parse(localStorage.getItem(key) || "[]"));
+      const stored = JSON.parse(localStorage.getItem(key) || "[]");
+      const starred = stored.filter((m: Msg) => m.starred);
+      setMsgs(starred);
+      hasStarred = starred.length > 0;
     } catch { }
-    setLoadingSkeleton(true);
-    const timer = setTimeout(() => {
+
+    if (hasStarred) {
+      setLoadingSkeleton(true);
+      const timer = setTimeout(() => {
+        setLoadingSkeleton(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
       setLoadingSkeleton(false);
-    }, 2000);
-    return () => clearTimeout(timer);
+    }
   }, [key]);
 
   // Animate drawer slowly upwards from bottom to top on mount
@@ -63,19 +164,26 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     const tween = gsap.fromTo(
       el,
       { y: "100%" },
-      { y: 0, duration: 0.65, ease: "power3.out" }
+      {
+        y: 0,
+        duration: 0.65,
+        ease: "power3.out",
+        onComplete: () => {
+          scrollToBottom(false);
+        },
+      }
     );
     return () => {
       tween.kill();
     };
   }, []);
 
-  // Scroll to latest message once skeleton finishes or new message arrives
+  // Safely scroll internal viewport to latest message without bouncing window or home screen
   useEffect(() => {
-    if (!loadingSkeleton) {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!loadingSkeleton && msgs.length > 0) {
+      scrollToBottom(true);
     }
-  }, [msgs, busy, loadingSkeleton]);
+  }, [msgs.length, busy, loadingSkeleton]);
 
   const animateClose = () => {
     if (isClosingRef.current) return;
@@ -143,27 +251,55 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     let verified = false;
     let responseTime: string | undefined;
     try {
+      // Saved/starred chats are stored only in localStorage for user viewing,
+      // and NOT sent to the model for response generation.
+      const activeUnstarredHistory = next.filter((m) => !m.starred);
+      const messagesToSend =
+        activeUnstarredHistory.length > 0 ? activeUnstarredHistory.slice(-4) : [{ role: "user", text: q }];
       const r = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           botId: bot.id,
           level: s.levels[bot.id],
-          messages: next,
+          messages: messagesToSend,
           customConfig: bot.customConfig,
         }),
       });
       const d = await r.json();
-      if (d.reply) reply = d.reply;
+      if (d.reply && d.reply.trim()) {
+        reply = d.reply;
+      } else if (d.error) {
+        reply = `Error: ${d.error}`;
+      } else {
+        reply = "Received empty response. Please try again.";
+      }
       if (d.verified) verified = true;
       if (d.responseTime) responseTime = d.responseTime;
-    } catch { }
+
+      // Surface model fallback / transition errors as test toasts
+      if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
+        d.fallbackEvents.forEach((ev: any, idx: number) => {
+          setTimeout(() => {
+            showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
+          }, idx * 600);
+        });
+      }
+
+      if (!r.ok) {
+        showToast(`⚠️ Server error (${r.status}): ${d.reply || d.error || "Request failed"}`);
+      }
+    } catch (err) {
+      showToast(`⚠️ Network error: ${err instanceof Error ? err.message : "Failed to contact chat server"}`);
+    }
 
     const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];
     setMsgs(all);
     setBusy(false);
     try {
-      localStorage.setItem(key, JSON.stringify(all.slice(-100)));
+      // Persist ONLY starred messages in localStorage
+      const starredOnly = all.filter((m) => m.starred);
+      localStorage.setItem(key, JSON.stringify(starredOnly));
     } catch { }
   };
 
@@ -264,7 +400,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
           </div>
 
           {/* Scrollable Message Viewport (Discord DM Layout, 4px right/side gap) */}
-          <div className="flex-1 min-h-0 w-full pt-2 pb-36 overflow-y-auto select-text pl-1 pr-[4px]">
+          <div
+            ref={viewportRef}
+            className="flex-1 min-h-0 w-full pt-2 pb-36 overflow-y-auto select-text pl-1 pr-[4px]"
+          >
             {loadingSkeleton ? (
               <ChatSkeletonList botId={bot.id} />
             ) : (
@@ -318,8 +457,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                     <article
                       key={idx}
                       data-testid={isUser ? "chat-box-user" : "chat-box-bot"}
-                      className={`group w-full flex items-start gap-3 p-1 rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left ${isUser
-                        ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-[3px] border-l-zinc-400 dark:border-l-zinc-500"
+                      onClick={() => handleDoubleTap(idx)}
+                      onDoubleClick={() => toggleStar(idx)}
+                      className={`group w-full flex items-start gap-3 py-1.5 pr-2 pl-[10px] rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left cursor-pointer select-text relative ${isUser
+                        ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-0"
                         : botRowBg
                         }`}
                     >
@@ -347,8 +488,8 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
 
                       {/* Right Content Column */}
                       <div className="flex-1 min-w-0 flex flex-col items-start text-left">
-                        {/* Author Header Line */}
-                        <div className="flex items-center justify-between w-full gap-2">
+                        {/* Author Header Line with bot name, timing on same line, and star + copy on right with pb-[5px] */}
+                        <div className="flex items-center justify-between w-full gap-2 pb-[5px]">
                           <div className="flex items-center gap-1.5 flex-wrap leading-none">
                             <span
                               className={`font-semibold text-[14px] leading-none ${isUser
@@ -359,45 +500,71 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                               {isUser ? "You" : bot.name}
                             </span>
                             {!isUser && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9.5px] font-bold tracking-wide uppercase leading-none">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9px] font-bold tracking-wide uppercase leading-none">
                                 AGENT
                               </span>
                             )}
                             {!isUser && msg.verified && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/15 text-[#0066ff] dark:text-[#66a3ff] border border-[#0066ff]/25 text-[9.5px] font-bold leading-none">
-                                <span className="material-symbols-outlined text-[11px]">verified</span>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/15 text-[#0066ff] dark:text-[#66a3ff] border border-[#0066ff]/25 text-[9px] font-bold leading-none">
+                                <span className="material-symbols-outlined text-[10px]">verified</span>
                                 <span>Verified</span>
                               </span>
                             )}
                             <span className="text-[11px] font-normal text-[var(--ui-muted)] tabular-nums leading-none">
                               Today at {timeStr}
                             </span>
+
+                            {/* Response timing on the exact same line as bot name and timestamp */}
+                            {!isUser && msg.responseTime && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--ui-muted)] font-mono leading-none select-none pl-0.5">
+                                <span className="text-[9px] opacity-75">⚡</span>
+                                <span>{msg.responseTime}</span>
+                              </span>
+                            )}
+
+                            {msg.starred && (
+                              <span className="inline-flex items-center text-amber-400 text-[11px] leading-none animate-in zoom-in-75 duration-200" title="Starred & Saved">
+                                ⭐
+                              </span>
+                            )}
                           </div>
 
-                          {!isUser && (
+                          {/* Star and Copy buttons at right side with copy icon reduced by 40% */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Star Toggle Button */}
                             <button
                               type="button"
-                              onClick={() => copyText(msg.text, idx)}
-                              aria-label="Copy message"
-                              className="opacity-70 hover:opacity-100 px-1.5 py-0.5 rounded text-[11px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleStar(idx);
+                              }}
+                              aria-label={msg.starred ? "Unstar message" : "Star message"}
+                              title={msg.starred ? "Unstar & remove from memory" : "Double-tap or click to star and save"}
+                              className={`p-0.5 rounded text-[11px] flex items-center justify-center transition-all cursor-pointer ${msg.starred ? "opacity-100 scale-110" : "opacity-35 hover:opacity-100"
+                                }`}
                             >
-                              <span className="material-symbols-outlined text-[13px]">
+                              <span>{msg.starred ? "⭐" : "☆"}</span>
+                            </button>
+
+                            {/* Top-Right Copy Button with icon size reduced by 40% (from 13px to 10px) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyText(msg.text, idx);
+                              }}
+                              aria-label="Copy message"
+                              className="opacity-60 hover:opacity-100 px-1 py-0.5 rounded text-[9.5px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-0.5 transition-all cursor-pointer shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-[10px] leading-none">
                                 {copiedId === idx ? "check" : "content_copy"}
                               </span>
-                              <span className="text-[10px] font-medium">
+                              <span className="text-[9px] font-medium leading-none">
                                 {copiedId === idx ? "Copied" : "Copy"}
                               </span>
                             </button>
-                          )}
-                        </div>
-
-                        {/* Timing under bot's name with padding bottom of 5px */}
-                        {!isUser && msg.responseTime && (
-                          <div className="text-[10px] text-[var(--ui-muted)] font-mono pb-[5px] pt-1 flex items-center gap-1 leading-none select-none">
-                            <span className="text-[9px] opacity-75">⚡</span>
-                            <span>{msg.responseTime}</span>
                           </div>
-                        )}
+                        </div>
 
                         {/* Message Text (Poppins Regular) */}
                         <div
@@ -537,12 +704,8 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
               </div>
 
               {/* Light Liquid-Glass Squircle Input */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  send();
-                }}
-                className="flex items-center gap-2 w-full overflow-hidden rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-2.5 py-1.5 border-[1.5px] transition-all duration-200"
+              <div
+                className="flex items-end gap-1.5 w-full overflow-hidden rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-1 py-1.5 border-[1.5px] transition-all duration-200"
                 style={{
                   borderColor: isTypingActive ? botAccentColor : "rgba(212, 212, 216, 0.85)",
                   boxShadow: isTypingActive
@@ -554,33 +717,57 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   type="button"
                   aria-label="Close drawer"
                   onClick={animateClose}
-                  className="w-8 h-8 rounded-[14px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer"
+                  className="w-8 h-8 mb-0.5 rounded-[14px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
                 </button>
-                <input
-                  type="text"
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Prevent form submission on Enter / return key. Enter adds a newline instead.
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.stopPropagation();
+                    }
+                  }}
                   disabled={loadingSkeleton}
                   placeholder={`Ask ${bot.name}...`}
-                  className="flex-1 min-w-0 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 disabled:opacity-50"
+                  className="flex-1 min-w-0 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 resize-none min-h-[38px] max-h-[88px] disabled:opacity-50 transition-[height] duration-75 overflow-y-auto leading-[24px]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => send()}
                   disabled={busy || loadingSkeleton || !text.trim()}
                   aria-label="Send message"
-                  className="w-9 h-9 rounded-[14px] disabled:opacity-35 text-white flex items-center justify-center transition-all shrink-0 active:scale-90 shadow-sm cursor-pointer"
+                  className="w-9 h-9 mb-0.5 rounded-[14px] disabled:opacity-35 text-white flex items-center justify-center transition-all shrink-0 active:scale-90 shadow-sm cursor-pointer"
                   style={{ backgroundColor: botAccentColor }}
                 >
                   <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
                 </button>
-              </form>
+              </div>
             </div>
           </div>
         </section>
       </div>
+
+      {/* Model Fallback Error Toast Popups rendered directly on document.body */}
+      {mounted && toasts.length > 0 && typeof document !== "undefined" && createPortal(
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[99999] flex flex-col gap-2 max-w-[92vw] sm:max-w-md w-full pointer-events-none px-3">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="pointer-events-auto w-full px-4 py-2.5 rounded-xl bg-zinc-950 text-amber-300 border-2 border-amber-400 shadow-[0_10px_35px_rgba(0,0,0,0.85)] text-[12px] font-mono leading-snug flex items-start gap-2.5 backdrop-blur-xl"
+            >
+              <span className="text-[15px] shrink-0 mt-0.5">⚠️</span>
+              <div className="flex-1 min-w-0 break-words">{toast.message}</div>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

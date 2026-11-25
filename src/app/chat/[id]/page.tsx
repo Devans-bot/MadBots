@@ -6,7 +6,14 @@ import gsap from "gsap";
 import { BOTS } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
 
-type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean; responseTime?: string };
+type Msg = {
+  role: "user" | "model";
+  text: string;
+  t: number;
+  verified?: boolean;
+  responseTime?: string;
+  starred?: boolean;
+};
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,26 +21,99 @@ export default function ChatPage() {
   const bot = BOTS.find((b) => b.id === id);
   const { s } = useSettings();
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [loadingSkeleton, setLoadingSkeleton] = useState(true);
+  const [loadingSkeleton, setLoadingSkeleton] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string }>>([]);
+  const lastTapRef = useRef<{ [idx: number]: number }>({});
+
+  const showToast = (message: string) => {
+    const tid = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id: tid, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== tid));
+    }, 4500);
+  };
+
+  const toggleStar = (idx: number) => {
+    setMsgs((prev) => {
+      const target = prev[idx];
+      if (!target) return prev;
+      const willBeStarred = !target.starred;
+
+      const updated = prev.map((m, i) => {
+        if (i === idx) {
+          return { ...m, starred: willBeStarred };
+        }
+        if (willBeStarred && target.role === "model" && i === idx - 1 && prev[i]?.role === "user") {
+          return { ...prev[i], starred: true };
+        }
+        if (willBeStarred && target.role === "user" && i === idx + 1 && prev[i]?.role === "model") {
+          return { ...prev[i], starred: true };
+        }
+        return m;
+      });
+
+      try {
+        const starredOnly = updated.filter((m) => m.starred);
+        localStorage.setItem(key, JSON.stringify(starredOnly));
+      } catch { }
+
+      if (willBeStarred) {
+        showToast("⭐ Starred! Saved to your chat memory.");
+      } else {
+        showToast("☆ Unstarred message.");
+      }
+
+      return updated;
+    });
+  };
+
+  const handleDoubleTap = (idx: number) => {
+    const now = Date.now();
+    const last = lastTapRef.current[idx] || 0;
+    if (now - last < 350) {
+      toggleStar(idx);
+      lastTapRef.current[idx] = 0;
+    } else {
+      lastTapRef.current[idx] = now;
+    }
+  };
   const end = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const key = `madbots:chat:${id}`;
 
+  // Dynamically resize textarea height to fit content (grows on Enter/wrap up to 3 lines, shrinks on delete)
   useEffect(() => {
-    try {
-      setMsgs(JSON.parse(localStorage.getItem(key) || "[]"));
-    } catch {}
-  }, [key]);
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 38), 88);
+    el.style.height = `${nextHeight}px`;
+  }, [text]);
 
+  // Load only starred messages from storage on mount & run 1-second skeleton timer ONLY if there are starred messages
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let hasStarred = false;
+    try {
+      const stored = JSON.parse(localStorage.getItem(key) || "[]");
+      const starred = stored.filter((m: Msg) => m.starred);
+      setMsgs(starred);
+      hasStarred = starred.length > 0;
+    } catch {}
+
+    if (hasStarred) {
+      setLoadingSkeleton(true);
+      const timer = setTimeout(() => {
+        setLoadingSkeleton(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
       setLoadingSkeleton(false);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [key]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -82,22 +162,48 @@ export default function ChatPage() {
     let verified = false;
     let responseTime: string | undefined;
     try {
+      // Saved/starred chats are stored only in localStorage for user viewing,
+      // and NOT sent to the model for response generation.
+      const activeUnstarredHistory = next.filter((m) => !m.starred);
+      const messagesToSend =
+        activeUnstarredHistory.length > 0 ? activeUnstarredHistory.slice(-4) : [{ role: "user", text: q }];
       const r = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId: bot.id, level: s.levels[bot.id], messages: next }),
+        body: JSON.stringify({ botId: bot.id, level: s.levels[bot.id], messages: messagesToSend }),
       });
       const d = await r.json();
-      if (d.reply) reply = d.reply;
+      if (d.reply && d.reply.trim()) {
+        reply = d.reply;
+      } else if (d.error) {
+        reply = `Error: ${d.error}`;
+      } else {
+        reply = "Received empty response. Please try again.";
+      }
       if (d.verified) verified = true;
       if (d.responseTime) responseTime = d.responseTime;
-    } catch {}
+
+      if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
+        d.fallbackEvents.forEach((ev: any, idx: number) => {
+          setTimeout(() => {
+            showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
+          }, idx * 600);
+        });
+      }
+
+      if (!r.ok) {
+        showToast(`⚠️ Server error (${r.status}): ${d.reply || d.error || "Request failed"}`);
+      }
+    } catch (err) {
+      showToast(`⚠️ Network error: ${err instanceof Error ? err.message : "Failed to contact chat server"}`);
+    }
 
     const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];
     setMsgs(all);
     setBusy(false);
     try {
-      localStorage.setItem(key, JSON.stringify(all.slice(-100)));
+      const starredOnly = all.filter((m) => m.starred);
+      localStorage.setItem(key, JSON.stringify(starredOnly));
     } catch {}
   };
 
@@ -270,7 +376,44 @@ export default function ChatPage() {
                 {msgs.map((msg, idx) => {
               if (msg.role === "user") {
                 return (
-                  <div key={idx} className="flex flex-col items-end w-full pl-6">
+                  <div
+                    key={idx}
+                    onClick={() => handleDoubleTap(idx)}
+                    className="flex flex-col items-end w-full pl-6 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {msg.starred && (
+                        <span className="text-[12px] text-amber-400">⭐</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(idx);
+                        }}
+                        className={`px-1 py-0.5 rounded text-[12px] cursor-pointer ${
+                          msg.starred ? "text-amber-400 opacity-100" : "opacity-35 hover:opacity-100"
+                        }`}
+                      >
+                        {msg.starred ? "⭐" : "☆"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyText(msg.text, idx);
+                        }}
+                        aria-label="Copy message"
+                        className="opacity-70 hover:opacity-100 px-1.5 py-0.5 rounded text-[11px] text-[var(--ui-muted)] hover:text-white flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">
+                          {copiedId === idx ? "check" : "content_copy"}
+                        </span>
+                        <span className="text-[10px] font-medium">
+                          {copiedId === idx ? "Copied" : "Copy"}
+                        </span>
+                      </button>
+                    </div>
                     <div className="bg-[#1a1c1c] text-white px-4 py-3 rounded-2xl rounded-br-sm shadow-sm max-w-[88%] text-[14px] leading-relaxed whitespace-pre-wrap">
                       {msg.text}
                     </div>
@@ -279,36 +422,75 @@ export default function ChatPage() {
               }
 
               return (
-                <div key={idx} className="flex flex-col items-start w-full pr-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    {bot.avatar ? (
-                      <img
-                        src={bot.avatar}
-                        alt={bot.name}
-                        className="w-5 h-5 rounded-md object-cover shadow-xs border border-zinc-200"
-                      />
-                    ) : (
-                      <div
-                        className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white"
-                        style={{ background: bot.color }}
-                      >
-                        <span>{bot.initial}</span>
-                      </div>
-                    )}
-                    <span className="text-[11px] font-semibold text-zinc-500">{bot.name}</span>
-                    {msg.verified && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/10 text-[#0066ff] border border-[#0066ff]/20 text-[10px] font-bold">
-                        <span className="material-symbols-outlined text-[12px]">verified</span>
-                        <span>Verified</span>
-                      </span>
-                    )}
-                  </div>
-                  {msg.responseTime && (
-                    <div className="text-[10px] text-[var(--ui-muted)] font-mono pb-[5px] flex items-center gap-1 leading-none select-none">
-                      <span className="text-[9px] opacity-75">⚡</span>
-                      <span>{msg.responseTime}</span>
+                <div
+                  key={idx}
+                  onClick={() => handleDoubleTap(idx)}
+                  className="flex flex-col items-start w-full pr-1 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between w-full mb-1.5 pb-[5px]">
+                    <div className="flex items-center gap-2">
+                      {bot.avatar ? (
+                        <img
+                          src={bot.avatar}
+                          alt={bot.name}
+                          className="w-5 h-5 rounded-md object-cover shadow-xs border border-zinc-200"
+                        />
+                      ) : (
+                        <div
+                          className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white"
+                          style={{ background: bot.color }}
+                        >
+                          <span>{bot.initial}</span>
+                        </div>
+                      )}
+                      <span className="text-[11px] font-semibold text-zinc-500">{bot.name}</span>
+                      {msg.responseTime && (
+                        <span className="text-[10px] text-[var(--ui-muted)] font-mono flex items-center gap-0.5 leading-none select-none pl-1">
+                          <span className="text-[9px] opacity-75">⚡</span>
+                          <span>{msg.responseTime}</span>
+                        </span>
+                      )}
+                      {msg.verified && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/10 text-[#0066ff] border border-[#0066ff]/20 text-[10px] font-bold">
+                          <span className="material-symbols-outlined text-[12px]">verified</span>
+                          <span>Verified</span>
+                        </span>
+                      )}
+                      {msg.starred && (
+                        <span className="text-[12px] text-amber-400">⭐</span>
+                      )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(idx);
+                        }}
+                        className={`p-0.5 rounded text-[11px] cursor-pointer ${
+                          msg.starred ? "text-amber-400 opacity-100" : "opacity-35 hover:opacity-100"
+                        }`}
+                      >
+                        {msg.starred ? "⭐" : "☆"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyText(msg.text, idx);
+                        }}
+                        aria-label="Copy message"
+                        className="opacity-60 hover:opacity-100 px-1 py-0.5 rounded text-[9.5px] text-[var(--ui-muted)] hover:text-white flex items-center gap-0.5 transition-all cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[10px] leading-none">
+                          {copiedId === idx ? "check" : "content_copy"}
+                        </span>
+                        <span className="text-[9px] font-medium leading-none">
+                          {copiedId === idx ? "Copied" : "Copy"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                   <div
                     className="bg-[var(--ui-card-alt)] border border-[var(--ui-border)] rounded-2xl p-4 w-full flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
                     style={{ borderRadius: "20px" }}
@@ -412,40 +594,56 @@ export default function ChatPage() {
             ))}
           </div>
 
-          {/* Input Form */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-            className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-3 py-1.5 shadow-sm"
-          >
+          {/* Input Unit */}
+          <div className="flex items-end gap-1.5 bg-white/10 border border-white/15 rounded-[22px] px-1 py-1.5 shadow-sm">
             <button
               type="button"
               aria-label="Add context"
               onClick={() => alert(`Active model: ${bot.name}`)}
-              className="w-8 h-8 rounded-full text-white/70 hover:text-white flex items-center justify-center transition-all shrink-0 active:scale-90"
+              className="w-8 h-8 mb-0.5 rounded-full text-white/70 hover:text-white flex items-center justify-center transition-all shrink-0 active:scale-90"
             >
               <span className="material-symbols-outlined text-[20px]">add</span>
             </button>
-            <input
-              type="text"
+            <textarea
+              ref={textareaRef}
+              rows={1}
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.stopPropagation();
+                }
+              }}
               placeholder={`Ask ${bot.name}...`}
-              className="flex-1 bg-transparent border-0 text-[14px] text-white placeholder-white/50 focus:outline-none focus:ring-0 px-1 py-1"
+              className="flex-1 bg-transparent border-0 text-[16px] text-white placeholder-white/50 focus:outline-none focus:ring-0 px-1 py-1.5 resize-none min-h-[38px] max-h-[88px] transition-[height] duration-75 overflow-y-auto leading-[24px]"
             />
             <button
-              type="submit"
+              type="button"
+              onClick={() => send()}
               disabled={busy || !text.trim()}
               aria-label="Send message"
-              className="w-8 h-8 rounded-full bg-[#0066ff] hover:bg-[#0050cb] disabled:opacity-40 text-white flex items-center justify-center transition-all shrink-0 active:scale-90 shadow-sm"
+              className="w-8 h-8 mb-0.5 rounded-full bg-[#0066ff] hover:bg-[#0050cb] disabled:opacity-40 text-white flex items-center justify-center transition-all shrink-0 active:scale-90 shadow-sm cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
             </button>
-          </form>
+          </div>
+        </div>
+
+        {/* Fallback Error Toast Popups (Test Only) */}
+        {toasts.length > 0 && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 max-w-[92vw] sm:max-w-md w-full pointer-events-none px-3">
+            {toasts.map((toast) => (
+              <div
+                key={toast.id}
+                className="pointer-events-auto w-full px-3.5 py-2.5 rounded-xl bg-zinc-900/95 text-amber-300 border border-amber-500/50 shadow-2xl backdrop-blur-md text-[11.5px] font-mono leading-snug flex items-start gap-2"
+              >
+                <span className="text-[14px] shrink-0 mt-0.5">⚠️</span>
+                <div className="flex-1 min-w-0 break-words">{toast.message}</div>
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
-    </div>
   );
 }

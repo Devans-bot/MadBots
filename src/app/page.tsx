@@ -129,8 +129,12 @@ export default function Home() {
         }}
       />
 
-      {/* Home Content Underneath */}
-      <div className="flex-1 min-h-0 relative overflow-y-auto">
+      {/* Home Content Underneath (overflow locked when drawer is open to prevent background bounce) */}
+      <div
+        className={`flex-1 min-h-0 relative ${
+          activeBotId || showSettings ? "overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
         {/* Subtle Tally hand-drawn playful background vector doodles */}
         <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-40">
           <svg className="doodle-float absolute top-[20%] right-8 w-8 h-8 text-[#FF2B85] stroke-current fill-none stroke-[3] stroke-linecap-round" viewBox="0 0 24 24">
@@ -174,8 +178,8 @@ export default function Home() {
         </div>
 
         {/* Main Hero & AI Agents List */}
-        <main className="relative z-10 w-full pt-6 pb-16 flex flex-col px-3">
-          <div className="pb-4 text-left px-1" style={{ paddingBottom: "16px" }}>
+        <main className="relative z-10 w-full pt-6 pb-16 flex flex-col px-1">
+          <div className="pb-4 text-left px-2" style={{ paddingBottom: "16px" }}>
             <h1 className="text-[15px] font-bold tracking-tight text-[var(--ui-text)] flex items-center gap-1.5 font-headline">
               <span className="hero-word">Available LLM Agents</span>
               <span className="hero-word inline-flex items-center text-[#FF2B85]">
@@ -198,67 +202,43 @@ export default function Home() {
                   key={bot.id}
                   type="button"
                   onClick={() => setActiveBotId(bot.id)}
-                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border-2 border-[var(--ui-border)] hover:border-zinc-500 px-4 py-[11px] rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block shadow-[0_6px_14px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_18px_-2px_rgba(0,0,0,0.45)]"
+                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border-2 border-[var(--ui-border)] hover:border-zinc-500 pl-[10px] pr-2.5 py-2.5 rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block shadow-[0_6px_14px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_18px_-2px_rgba(0,0,0,0.45)]"
                   style={{
                     borderRadius: "20px",
                   }}
                 >
-                  <div className="flex items-start gap-3.5">
+                  <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0">
                       {bot.avatar ? (
                         <img
                           src={bot.avatar}
                           alt={bot.name}
-                          className="w-11 h-11 rounded-xl object-cover shadow-sm border border-zinc-300 dark:border-zinc-600"
+                          className="w-[66px] h-[66px] rounded-2xl object-cover shadow-sm border border-zinc-300 dark:border-zinc-600"
                         />
                       ) : (
                         <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-sm"
+                          className="w-[66px] h-[66px] rounded-2xl flex items-center justify-center font-bold text-white text-2xl shadow-sm"
                           style={{ background: bot.color }}
                         >
                           {bot.initial}
                         </div>
                       )}
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[var(--ui-card)] rounded-full flex items-center justify-center">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+                      <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-[var(--ui-card)] rounded-full flex items-center justify-center shadow-xs">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[15px] font-bold text-[var(--ui-text)] truncate font-headline">
-                            {bot.name}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded border border-[var(--ui-border)] bg-[var(--ui-sheet)] text-[var(--ui-muted)] text-[10px] font-semibold">
-                            {badgeLabel}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-semibold text-[#0066FF] flex-shrink-0">
-                          {lastMsg
-                            ? new Date(lastMsg.t).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Ready"}
+                    <div className="flex-1 min-w-0 pr-1">
+                      <div className="flex items-center gap-2 mb-1 min-w-0">
+                        <span className="text-[16px] font-bold text-[var(--ui-text)] truncate font-headline">
+                          {bot.name}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded border border-[var(--ui-border)] bg-[var(--ui-sheet)] text-[var(--ui-muted)] text-[10px] font-semibold shrink-0">
+                          {badgeLabel}
                         </span>
                       </div>
-                      <p className="font-body text-[13px] text-[var(--ui-muted)] font-normal line-clamp-2 mb-1.5">
+                      <p className="font-body text-[10.5px] text-[var(--ui-muted)] font-normal line-clamp-2 leading-tight">
                         {bot.tagline}
                       </p>
-                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[var(--ui-border)] text-[var(--ui-muted)] font-medium">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 bg-[var(--ui-sheet)] text-[var(--ui-text)] px-2 py-0.5 rounded">
-                            <span className="material-symbols-outlined text-[13px] text-[var(--ui-muted)]">
-                              {tagIcon}
-                            </span>{" "}
-                            {tagText}
-                          </span>
-                          <span className="text-emerald-600 font-semibold">Active</span>
-                        </div>
-                        <span className="w-5 h-5 rounded-full bg-zinc-950 text-white text-[10px] font-bold flex items-center justify-center">
-                          <span className="material-symbols-outlined text-[12px]">chat</span>
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </button>

@@ -117,15 +117,15 @@
     ),
     linear-gradient(
       90deg,
-      #ff7ac6 0%,
-      #ff2b85 28%,
-      #ff1493 50%,
-      #ff2b85 72%,
-      #ff5ca8 100%
+      #38bdf8 0%,
+      #00d4ff 26%,
+      #0066ff 50%,
+      #00d4ff 74%,
+      #38bdf8 100%
     );
   box-shadow:
-    0 -3px 14px -1px rgba(255, 43, 133, 0.5),
-    0 -1px 6px 0px rgba(255, 20, 147, 0.35);
+    0 -3px 14px -1px rgba(0, 174, 255, 0.45),
+    0 -1px 6px 0px rgba(0, 102, 255, 0.35);
 }
 
 .madbots-graph-grid {

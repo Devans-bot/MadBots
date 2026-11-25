@@ -113,13 +113,13 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
           aria-label="Settings"
           className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[24.5px] bg-[var(--ui-sheet)]"
         >
-          {/* Top Draggable Swipe Handle + Sticky Settings Title */}
+          {/* Top Draggable Swipe Handle */}
           <div
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="shrink-0 z-30 pt-1 pb-2 touch-none cursor-grab active:cursor-grabbing"
+            className="shrink-0 z-30 pt-1 pb-1.5 touch-none cursor-grab active:cursor-grabbing"
           >
             <div className="flex justify-center">
               <button
@@ -130,39 +130,22 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                 <span className="w-14 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 group-hover:bg-zinc-400 dark:group-hover:bg-zinc-400 transition-colors" />
               </button>
             </div>
-
-            <div className="w-[95%] mx-auto flex items-center justify-between px-3 py-2 rounded-2xl bg-[var(--ui-card)]/95 backdrop-blur-md border border-[var(--ui-border)] shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#ff1493] text-[20px]">auto_awesome</span>
-                <span className="font-bold text-[var(--ui-text)] tracking-tight text-[15px] font-headline">
-                  MaDbotS Config
-                </span>
-              </div>
-              <svg className="w-14 h-3.5 text-[#e40a65]" fill="none" viewBox="0 0 70 16">
-                <path
-                  d="M2 12C10 2 15 14 25 5C35 -4 40 15 50 6C58 -2 62 13 68 8"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="2.5"
-                />
-              </svg>
-            </div>
           </div>
 
           {/* Scrollable Settings Body */}
-          <div className="flex-1 min-h-0 w-full overflow-y-auto px-4 pt-2 pb-10 flex flex-col gap-[19px]">
+          <div className="flex-1 min-h-0 w-full overflow-y-auto px-3.5 pt-2 pb-10 flex flex-col gap-3.5">
             {/* Dark Mode Switch */}
-            <div className="bg-[var(--ui-card)] p-5 rounded-2xl shadow-sm border border-[var(--ui-border)]">
+            <div className="bg-[var(--ui-card)] px-4 py-3 rounded-2xl shadow-sm border border-[var(--ui-border)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--ui-sheet)] flex items-center justify-center text-[var(--ui-text)]">
-                    <span className="material-symbols-outlined text-[20px]">dark_mode</span>
+                  <div className="w-9 h-9 rounded-xl bg-[var(--ui-sheet)] flex items-center justify-center text-[var(--ui-text)]">
+                    <span className="material-symbols-outlined text-[19px]">dark_mode</span>
                   </div>
                   <div>
-                    <p className="text-[16px] font-bold text-[var(--ui-text)] leading-snug">
+                    <p className="text-[15px] font-bold text-[var(--ui-text)] leading-snug">
                       Dark Night Mode
                     </p>
-                    <p className="text-[12px] text-[var(--ui-muted)]">
+                    <p className="text-[11.5px] text-[var(--ui-muted)]">
                       Deep theme for late night work
                     </p>
                   </div>
@@ -191,53 +174,53 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               </div>
             </div>
 
-            {/* Thinking Level for Each Bot */}
+            {/* Thinking Level for Each Bot (Height reduced by 20%, all sliders blue) */}
             {BOTS.map((bot) => {
               const currentLevel = s.levels[bot.id] ?? bot.level;
               const isMacro = bot.id === "madrix-macros";
               const isBhima = bot.id === "bhima-coach";
-              const accentColor = isMacro ? "#ff1493" : isBhima ? "#f59e0b" : "#0066ff";
+              const sliderColor = "#0066ff";
               const tagBg = isMacro
-                ? "bg-pink-100 text-[#ff1493]"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
                 : isBhima
-                ? "bg-amber-100 text-[#d97706]"
-                : "bg-blue-100 text-[#0066ff]";
+                ? "bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400"
+                : "bg-blue-100 text-[#0066ff] dark:bg-blue-950/60 dark:text-blue-400";
               const tagLabel = isMacro ? "Nutrition" : isBhima ? "Fitness" : "Coding";
 
               return (
                 <div
                   key={bot.id}
-                  className="bg-[var(--ui-card)] p-5 rounded-2xl shadow-sm space-y-[15px] border border-[var(--ui-border)]"
+                  className="bg-[var(--ui-card)] px-4 py-3 rounded-2xl shadow-sm space-y-2.5 border border-[var(--ui-border)]"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-16 h-12 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-12 h-10 shrink-0">
                         {bot.avatar ? (
                           <img
                             src={bot.avatar}
                             alt={bot.name}
-                            className="w-16 h-12 rounded-2xl object-cover shadow-sm border border-zinc-300 dark:border-zinc-600"
+                            className="w-12 h-10 rounded-xl object-cover shadow-sm border border-zinc-300 dark:border-zinc-600"
                           />
                         ) : (
                           <div
-                            className="w-16 h-12 rounded-2xl flex items-center justify-center font-bold text-white text-lg shadow-sm"
+                            className="w-12 h-10 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm"
                             style={{ background: bot.color }}
                           >
                             {bot.initial}
                           </div>
                         )}
                         <span
-                          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[var(--ui-card)]"
-                          style={{ background: accentColor }}
+                          className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[var(--ui-card)]"
+                          style={{ background: sliderColor }}
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-[var(--ui-text)] text-[15px] font-headline">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[var(--ui-text)] text-[14.5px] font-headline">
                             {bot.name}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded uppercase tracking-wider font-bold text-[10px] ${tagBg}`}
+                            className={`px-1.5 py-0.5 rounded uppercase tracking-wider font-bold text-[9.5px] ${tagBg}`}
                           >
                             {tagLabel}
                           </span>
@@ -245,37 +228,37 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                       </div>
                     </div>
                     <span
-                      className="px-2 py-1 rounded-md font-semibold text-[10px]"
-                      style={{ color: accentColor, background: `${accentColor}15` }}
+                      className="px-2 py-0.5 rounded-md font-semibold text-[10px]"
+                      style={{ color: sliderColor, background: `${sliderColor}15` }}
                     >
                       Active
                     </span>
                   </div>
 
-                  {/* Thinking Level Meter */}
-                  <div className="space-y-3 pt-1">
+                  {/* Thinking Level Meter (All blue sliders) */}
+                  <div className="space-y-2 pt-0.5">
                     <div className="flex items-center justify-between">
-                      <label className="font-bold text-[var(--ui-text)] flex items-center gap-1.5 text-[11px]">
+                      <label className="font-bold text-[var(--ui-text)] flex items-center gap-1 text-[11px]">
                         <span>Thinking level</span>
-                        <span className="text-[12px]">💡</span>
+                        <span className="text-[11px]">💡</span>
                       </label>
                       <span
-                        className="font-bold px-2.5 py-0.5 rounded-full text-[10px]"
-                        style={{ color: accentColor, background: `${accentColor}15` }}
+                        className="font-bold px-2 py-0.5 rounded-full text-[10px]"
+                        style={{ color: sliderColor, background: `${sliderColor}15` }}
                       >
                         {LEVEL_LABELS[currentLevel]}
                       </span>
                     </div>
 
-                    <div className="relative py-2 px-1">
+                    <div className="relative py-1.5 px-0.5">
                       <div className="w-full h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden relative">
                         <div
                           className="h-full rounded-full transition-all duration-200"
-                          style={{ width: LEVEL_PERCENTAGES[currentLevel], background: accentColor }}
+                          style={{ width: LEVEL_PERCENTAGES[currentLevel], background: sliderColor }}
                         />
                       </div>
 
-                      <div className="flex justify-between items-center -mt-3.5 relative z-10 px-0.5">
+                      <div className="flex justify-between items-center -mt-3 relative z-10 px-0.5">
                         {LEVELS.map((lvl) => {
                           const lvlIndex = LEVELS.indexOf(lvl);
                           const currentIndex = LEVELS.indexOf(currentLevel);
@@ -289,26 +272,26 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                               onClick={() => setLevel(bot.id, lvl)}
                               className={`rounded-full flex items-center justify-center shadow-sm cursor-pointer focus:outline-none ring-2 ring-[var(--ui-card)] transition-all ${
                                 isCurrent
-                                  ? "w-6 h-6 text-white scale-110 shadow-md"
+                                  ? "w-5 h-5 text-white scale-110 shadow-md"
                                   : isActive
-                                  ? "w-5 h-5 text-white"
-                                  : "w-5 h-5 bg-zinc-300 dark:bg-zinc-600 text-zinc-600"
+                                  ? "w-4 h-4 text-white"
+                                  : "w-4 h-4 bg-zinc-300 dark:bg-zinc-600 text-zinc-600"
                               }`}
-                              style={isActive ? { background: accentColor } : {}}
+                              style={isActive ? { background: sliderColor } : {}}
                               type="button"
                             />
                           );
                         })}
                       </div>
 
-                      <div className="flex justify-between items-center pt-2 font-medium text-[var(--ui-muted)] text-[10px]">
+                      <div className="flex justify-between items-center pt-1.5 font-medium text-[var(--ui-muted)] text-[9.5px]">
                         {LEVELS.map((lvl) => (
                           <span
                             key={lvl}
                             className={`cursor-pointer capitalize ${
                               currentLevel === lvl ? "font-bold" : ""
                             }`}
-                            style={currentLevel === lvl ? { color: accentColor } : {}}
+                            style={currentLevel === lvl ? { color: sliderColor } : {}}
                             onClick={() => setLevel(bot.id, lvl)}
                           >
                             {lvl === "minimal" ? "Low" : lvl}

@@ -43,7 +43,7 @@ export async function callGroqDexter(
 
   const conversationMessages = [
     { role: "system", content: systemPrompt },
-    ...messages.slice(-20).map((m) => ({
+    ...messages.slice(-6).map((m) => ({
       role: (m.role === "model" || m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
       content: String(m.text || m.content || ""),
     })),
@@ -75,14 +75,17 @@ export async function callGroqDexter(
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content;
       if (content) {
-        const elapsed = Math.round(performance.now() - start);
-        const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
-        return {
-          ok: true,
-          reply: cleanReply(content),
-          responseTime,
-          modelUsed: model,
-        };
+        const cleaned = cleanReply(content);
+        if (cleaned.trim()) {
+          const elapsed = Math.round(performance.now() - start);
+          const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+          return {
+            ok: true,
+            reply: cleaned,
+            responseTime,
+            modelUsed: model,
+          };
+        }
       }
     } catch (err) {
       lastError = err instanceof Error ? err.message : "Network error";

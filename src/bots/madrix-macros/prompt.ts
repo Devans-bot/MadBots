@@ -15,10 +15,13 @@ function loadFileSafe(fileName: string): string {
   return "";
 }
 
-export function getMacrosPrompt(): string {
+const BK_TRIGGER = /\b(burger|whopper|bk|fries|shake|nuggets|makhani burst|paneer royale|crispy chicken|fiery chicken|saucy fries|fast food)\b/i;
+
+export function getMacrosPrompt(contextText?: string): string {
   const soul = loadFileSafe("soul.md");
   const personalDb = loadFileSafe("personal_food_macros.txt");
-  const bkDb = loadFileSafe("burger_king_selected_macros.txt");
+  const shouldIncludeBk = Boolean(contextText && BK_TRIGGER.test(contextText));
+  const bkDb = shouldIncludeBk ? loadFileSafe("burger_king_selected_macros.txt") : "";
 
   let full = soul;
   if (personalDb) {
@@ -28,4 +31,12 @@ export function getMacrosPrompt(): string {
     full += `\n\n---\n\n## REFERENCE DATABASE: burger_king_selected_macros.txt\n\`\`\`\n${bkDb}\n\`\`\``;
   }
   return full;
+}
+
+/**
+ * Lean, high-density system prompt generator for Groq API calls.
+ * Uses the user's updated soul.md and personal food database directly.
+ */
+export function getCompactMacrosPrompt(contextText?: string): string {
+  return getMacrosPrompt(contextText);
 }

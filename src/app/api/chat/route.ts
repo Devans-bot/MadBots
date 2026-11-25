@@ -43,6 +43,13 @@ function getBotCredentials(botId: string) {
   };
 }
 
+export type FallbackEvent = {
+  stage: string;
+  model: string;
+  error: string;
+  nextAction: string;
+};
+
 export async function POST(req: Request) {
   const apiStartTime = performance.now();
   const { botId, messages, level, customConfig } = await req.json();
@@ -55,26 +62,108 @@ export async function POST(req: Request) {
     name: "Custom Bot",
   };
 
-  // Route to Groq if key is present for built-in agents
+  const fallbackEvents: FallbackEvent[] = [];
+
+  // Specialized Skill Check: Macro-Chief's verify-macros
+  if (bot.id === "madrix-macros") {
+    const creds = getBotCredentials("madrix-macros");
+    const modelsToTry = Array.from(
+      new Set([creds.model, creds.fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean))
+    );
+    const skillResult = await runVerifyMacrosSkill(messages as Msg[], creds.key, modelsToTry);
+    if (skillResult.handled) {
+      const elapsed = Math.round(performance.now() - apiStartTime);
+      const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+      return NextResponse.json({
+        reply: skillResult.reply,
+        verified: Boolean(skillResult.verified),
+        responseTime,
+        modelUsed: creds.model,
+        fallbackEvents: [],
+      });
+    }
+  }
+
+  // Stage 1 & 2: Primary Groq + Retry Groq
+  let groqRes: { ok: boolean; reply: string; responseTime: string; modelUsed?: string } | null = null;
+  let groqModelName = "";
+
   if (bot.id === "madrix-macros" && (process.env.GROQ_API_KEY_MACROS || process.env.GROQ_API_KEY)) {
-    const groqRes = await callGroqMacroChief(messages as Msg[]);
-    if (groqRes.ok) {
-      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
+    groqModelName = process.env.GROQ_MODEL_MACROS || "qwen/qwen3.8-27b";
+    groqRes = await callGroqMacroChief(messages as Msg[]);
+    if (!groqRes.ok || !groqRes.reply?.trim()) {
+      fallbackEvents.push({
+        stage: "Groq (Primary)",
+        model: groqModelName,
+        error: !groqRes.ok ? groqRes.reply : "Empty response",
+        nextAction: "Retrying Groq...",
+      });
+      // Retry Groq once more
+      await new Promise((r) => setTimeout(r, 400));
+      groqRes = await callGroqMacroChief(messages as Msg[]);
+      if (!groqRes.ok || !groqRes.reply?.trim()) {
+        fallbackEvents.push({
+          stage: "Groq (Retry)",
+          model: groqModelName,
+          error: !groqRes.ok ? groqRes.reply : "Empty response on retry",
+          nextAction: "Switching to Gemini Secondary (gemini-3.5-flash-lite)...",
+        });
+      }
+    }
+  } else if (bot.id === "bhima-coach" && (process.env.GROQ_API_KEY_BHIMA || process.env.GROQ_API_KEY)) {
+    groqModelName = process.env.GROQ_MODEL_BHIMA || "openai/gpt-oss-120b";
+    groqRes = await callGroqBhima(messages as Msg[]);
+    if (!groqRes.ok || !groqRes.reply?.trim()) {
+      fallbackEvents.push({
+        stage: "Groq (Primary)",
+        model: groqModelName,
+        error: !groqRes.ok ? groqRes.reply : "Empty response",
+        nextAction: "Retrying Groq...",
+      });
+      // Retry Groq once more
+      await new Promise((r) => setTimeout(r, 400));
+      groqRes = await callGroqBhima(messages as Msg[]);
+      if (!groqRes.ok || !groqRes.reply?.trim()) {
+        fallbackEvents.push({
+          stage: "Groq (Retry)",
+          model: groqModelName,
+          error: !groqRes.ok ? groqRes.reply : "Empty response on retry",
+          nextAction: "Switching to Gemini Secondary (gemini-3.5-flash-lite)...",
+        });
+      }
+    }
+  } else if (bot.id === "madrix-codes" && (process.env.GROQ_API_KEY_DEXTER || process.env.GROQ_API_KEY)) {
+    groqModelName = process.env.GROQ_MODEL_DEXTER || "openai/gpt-oss-20b";
+    groqRes = await callGroqDexter(messages as Msg[]);
+    if (!groqRes.ok || !groqRes.reply?.trim()) {
+      fallbackEvents.push({
+        stage: "Groq (Primary)",
+        model: groqModelName,
+        error: !groqRes.ok ? groqRes.reply : "Empty response",
+        nextAction: "Retrying Groq...",
+      });
+      // Retry Groq once more
+      await new Promise((r) => setTimeout(r, 400));
+      groqRes = await callGroqDexter(messages as Msg[]);
+      if (!groqRes.ok || !groqRes.reply?.trim()) {
+        fallbackEvents.push({
+          stage: "Groq (Retry)",
+          model: groqModelName,
+          error: !groqRes.ok ? groqRes.reply : "Empty response on retry",
+          nextAction: "Switching to Gemini Secondary (gemini-3.5-flash-lite)...",
+        });
+      }
     }
   }
 
-  if (bot.id === "bhima-coach" && (process.env.GROQ_API_KEY_BHIMA || process.env.GROQ_API_KEY)) {
-    const groqRes = await callGroqBhima(messages as Msg[]);
-    if (groqRes.ok) {
-      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
-    }
-  }
-
-  if (bot.id === "madrix-codes" && (process.env.GROQ_API_KEY_DEXTER || process.env.GROQ_API_KEY)) {
-    const groqRes = await callGroqDexter(messages as Msg[]);
-    if (groqRes.ok) {
-      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
-    }
+  // If Groq succeeded on primary or retry, return immediately!
+  if (groqRes && groqRes.ok && groqRes.reply?.trim()) {
+    return NextResponse.json({
+      reply: groqRes.reply,
+      responseTime: groqRes.responseTime,
+      modelUsed: groqRes.modelUsed || groqModelName,
+      fallbackEvents,
+    });
   }
 
   const creds = builtInBot
@@ -89,6 +178,7 @@ export async function POST(req: Request) {
   if (!key || !model) {
     return NextResponse.json({
       reply: `(${bot.name} demo reply) Add an API key in the bot settings or .env.local for real answers.`,
+      fallbackEvents,
     });
   }
 
@@ -101,15 +191,6 @@ export async function POST(req: Request) {
   const lv = (LEVELS as readonly string[]).includes(level) ? level : undefined;
   const modelsToTry = Array.from(new Set([model, fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean)));
 
-  if (bot.id === "madrix-macros") {
-    const skillResult = await runVerifyMacrosSkill(messages as Msg[], key, modelsToTry);
-    if (skillResult.handled) {
-      return NextResponse.json({
-        reply: skillResult.reply,
-        verified: Boolean(skillResult.verified),
-      });
-    }
-  }
 
   const promptText = builtInBot
     ? PROMPTS[builtInBot.id] ?? ""
@@ -118,15 +199,45 @@ export async function POST(req: Request) {
   const generationConfig = lv ? { thinkingConfig: { thinkingLevel: lv } } : undefined;
   const tools = bot.id === "madrix-macros" ? MACROS_TOOLS : undefined;
 
-  let result = await generateWithFallback(modelsToTry, key, {
+  // Stage 3: Gemini Secondary (e.g. gemini-3.5-flash-lite)
+  let result = await generateWithFallback([model], key, {
     systemInstruction,
     contents,
     generationConfig,
     tools,
-  });
+  }, 1);
 
+  let finalModelUsed = model;
+
+  // Stage 4: Global Fallback (gemini-3.1-flash-lite) if secondary fails
   if (!result.ok) {
-    return NextResponse.json({ reply: result.message });
+    fallbackEvents.push({
+      stage: "Gemini (Secondary)",
+      model: model,
+      error: result.message || "Model failed / busy",
+      nextAction: "Switching to Global Fallback (gemini-3.1-flash-lite)...",
+    });
+
+    result = await generateWithFallback([fallbackModel, "gemini-3.1-flash-lite"], key, {
+      systemInstruction,
+      contents,
+      generationConfig,
+      tools,
+    }, 2);
+    finalModelUsed = fallbackModel || "gemini-3.1-flash-lite";
+
+    if (!result.ok) {
+      fallbackEvents.push({
+        stage: "Gemini (Global Fallback)",
+        model: "gemini-3.1-flash-lite",
+        error: result.message || "Global fallback failed",
+        nextAction: "All model fallbacks exhausted",
+      });
+      return NextResponse.json({
+        reply: result.message,
+        fallbackEvents,
+      });
+    }
   }
 
   const getParts = (data: Record<string, unknown>): GeminiPart[] => {
@@ -169,5 +280,10 @@ export async function POST(req: Request) {
   const reply = rawReply ? cleanReply(rawReply) : "No answer came back. Try again.";
   const elapsed = Math.round(performance.now() - apiStartTime);
   const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
-  return NextResponse.json({ reply, responseTime });
+  return NextResponse.json({
+    reply,
+    responseTime,
+    modelUsed: finalModelUsed,
+    fallbackEvents,
+  });
 }

@@ -41,6 +41,9 @@ Sugar                      100 g       387              0
 Roti                       100 g       300              8
 Cooked dal                 100 g       120              0             Protein excluded by request
 Potato                     100 g       110              0
+Goat meat (cooked)         100 g       204              25            
+Aloo sabji                 100 g       210              0            
+Roasted chana              100 g       370              19            User-provided values (approximate)
 
 ADDITIONAL SERVING REFERENCES
 -----------------------------
