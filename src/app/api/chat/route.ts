@@ -16,18 +16,30 @@ function getBotCredentials(botId: string) {
   if (botId === "madrix-macros") {
     return {
       key: process.env.GEMINI_API_KEY_MACROS || process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL_MACROS || process.env.GEMINI_MODEL || "gemini-3.5-flash",
+      model: process.env.GEMINI_MODEL_MACROS || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+      fallbackModel:
+        process.env.GEMINI_FALLBACK_MODEL_MACROS ||
+        process.env.GEMINI_FALLBACK_MODEL ||
+        "gemini-3.1-flash-lite",
     };
   }
   if (botId === "bhima-coach") {
     return {
       key: process.env.GEMINI_API_KEY_BHIMA || process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL_BHIMA || process.env.GEMINI_MODEL || "gemini-3.5-flash",
+      model: process.env.GEMINI_MODEL_BHIMA || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+      fallbackModel:
+        process.env.GEMINI_FALLBACK_MODEL_BHIMA ||
+        process.env.GEMINI_FALLBACK_MODEL ||
+        "gemini-3.1-flash-lite",
     };
   }
   return {
     key: process.env.GEMINI_API_KEY_CODES || process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL_CODES || process.env.GEMINI_MODEL || "gemini-3.5-flash",
+    model: process.env.GEMINI_MODEL_CODES || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+    fallbackModel:
+      process.env.GEMINI_FALLBACK_MODEL_CODES ||
+      process.env.GEMINI_FALLBACK_MODEL ||
+      "gemini-3.1-flash-lite",
   };
 }
 
@@ -69,9 +81,11 @@ export async function POST(req: Request) {
     ? getBotCredentials(builtInBot.id)
     : {
         key: customConfig?.apiKey || process.env.GEMINI_API_KEY,
-        model: customConfig?.model || process.env.GEMINI_MODEL || "gemini-3.5-flash",
+        model: customConfig?.model || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+        fallbackModel:
+          customConfig?.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite",
       };
-  const { key, model } = creds;
+  const { key, model, fallbackModel } = creds;
   if (!key || !model) {
     return NextResponse.json({
       reply: `(${bot.name} demo reply) Add an API key in the bot settings or .env.local for real answers.`,
@@ -85,11 +99,7 @@ export async function POST(req: Request) {
   while (contents[0]?.role === "model") contents.shift();
 
   const lv = (LEVELS as readonly string[]).includes(level) ? level : undefined;
-  const fallbackModel =
-    (!builtInBot && customConfig?.fallbackModel) ||
-    process.env.GEMINI_FALLBACK_MODEL ||
-    "gemini-3.1-flash-lite";
-  const modelsToTry = Array.from(new Set([model, fallbackModel, "gemini-3.1-flash-lite"]));
+  const modelsToTry = Array.from(new Set([model, fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean)));
 
   if (bot.id === "madrix-macros") {
     const skillResult = await runVerifyMacrosSkill(messages as Msg[], key, modelsToTry);
