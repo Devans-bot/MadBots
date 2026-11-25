@@ -95,15 +95,11 @@
     ),
     linear-gradient(
       90deg,
-      #38bdf8 0%,
-      #00d4ff 26%,
-      #0066ff 50%,
-      #00d4ff 74%,
-      #38bdf8 100%
+      #e4e4e7 0%,
+      #f4f4f5 50%,
+      #e4e4e7 100%
     );
-  box-shadow:
-    0 -3px 13px -1px rgba(0, 174, 255, 0.38),
-    0 -1px 5px 0px rgba(0, 102, 255, 0.28);
+  box-shadow: none;
 }
 
 .dark .madbots-chat-neon-frame {
@@ -117,15 +113,11 @@
     ),
     linear-gradient(
       90deg,
-      #38bdf8 0%,
-      #00d4ff 26%,
-      #0066ff 50%,
-      #00d4ff 74%,
-      #38bdf8 100%
+      #e4e4e7 0%,
+      #f4f4f5 50%,
+      #e4e4e7 100%
     );
-  box-shadow:
-    0 -3px 14px -1px rgba(0, 174, 255, 0.45),
-    0 -1px 6px 0px rgba(0, 102, 255, 0.35);
+  box-shadow: none;
 }
 
 .madbots-graph-grid {
