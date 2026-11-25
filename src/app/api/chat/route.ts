@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   const fallbackModel =
     (!builtInBot && customConfig?.fallbackModel) ||
     process.env.GEMINI_FALLBACK_MODEL ||
-    "gemini-3.2-flash-lite";
+    "gemini-3.1-flash-lite";
   const modelsToTry = Array.from(new Set([model, fallbackModel, "gemini-3.1-flash-lite"]));
 
   if (bot.id === "madrix-macros") {

@@ -59,7 +59,7 @@ export default function Home() {
       customConfig: {
         apiKey: newBotApiKey.trim(),
         model: newBotModel.trim() || "gemini-3.5-flash",
-        fallbackModel: newBotFallbackModel.trim() || "gemini-3.2-flash-lite",
+        fallbackModel: newBotFallbackModel.trim() || "gemini-3.1-flash-lite",
         soul: newBotSoul.trim(),
         visibility: newBotVisibility,
       },
@@ -198,7 +198,7 @@ export default function Home() {
                   key={bot.id}
                   type="button"
                   onClick={() => setActiveBotId(bot.id)}
-                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border border-[var(--ui-border)] hover:border-zinc-500 px-4 py-[11px] rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border-2 border-[var(--ui-border)] hover:border-zinc-500 px-4 py-[11px] rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block shadow-[0_6px_14px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_18px_-2px_rgba(0,0,0,0.45)]"
                   style={{
                     borderRadius: "20px",
                   }}
