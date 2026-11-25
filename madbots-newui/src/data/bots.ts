@@ -1,0 +1,83 @@
+import type { BotAgent, MessageAttachment } from '../types';
+
+export const INITIAL_BOTS: BotAgent[] = [
+  {
+    id: 'nexus-codebot',
+    name: 'Nexus CodeBot',
+    settingsName: 'Nexus CodeBot',
+    shortInitial: 'N',
+    model: 'GPT-4o',
+    role: 'Low-latency engineering agent',
+    tierLabel: 'Pro Active',
+    category: 'engineering',
+    accent: 'blue',
+    status: 'online',
+    lastUpdated: 'Just now',
+    lastMessage: 'Refactored your async query handler with 40% less latency! ⚡',
+    capabilityLabel: 'TypeScript',
+    capabilityIcon: 'code',
+    latencyMs: 180,
+    showLatency: true,
+    unreadCount: 1,
+    thinkingLevel: 2,
+    quickPrompts: [
+      'Explain workgroup shared memory',
+      'Add spatial hash grid',
+      'Show render pipeline code',
+    ],
+    avatarVariant: 'nexus',
+  },
+  {
+    id: 'aura-creative',
+    name: 'Aura Creative',
+    settingsName: 'Madrix Creative',
+    shortInitial: 'A',
+    model: 'FLUX.1',
+    role: 'Lifestyle & creative generation',
+    tierLabel: 'Standard',
+    category: 'creative',
+    accent: 'pink',
+    status: 'idle',
+    lastUpdated: '4m ago',
+    lastMessage: 'Rendered 4 cyberpunk neo-brutalist covers for your mixtape deck.',
+    capabilityLabel: '4 Previews',
+    capabilityIcon: 'image',
+    latencyMs: 320,
+    showLatency: false,
+    unreadCount: 3,
+    thinkingLevel: 1,
+    quickPrompts: [
+      'Generate high-contrast palette',
+      'Refine editorial type scale',
+      'Export print cover specs',
+    ],
+    avatarVariant: 'aura',
+  },
+];
+
+export const WORKSPACE_FILES: MessageAttachment[] = [
+  {
+    id: 'att-wgsl',
+    name: 'particle_sim.wgsl',
+    size: '4.2 KB',
+    kind: 'code',
+  },
+  {
+    id: 'att-pipeline',
+    name: 'webgpu_pipeline.ts',
+    size: '6.8 KB',
+    kind: 'code',
+  },
+  {
+    id: 'att-brief',
+    name: 'mixtape_art_direction.md',
+    size: '2.1 KB',
+    kind: 'doc',
+  },
+  {
+    id: 'att-tokens',
+    name: 'cover_grid_specs.json',
+    size: '1.9 KB',
+    kind: 'design',
+  },
+];

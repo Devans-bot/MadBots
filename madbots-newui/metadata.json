@@ -1,0 +1,6 @@
+{
+  "name": "MaDbotS Prototyping Platform",
+  "description": "Interactive AI bot prototyping workspace with multi-agent chat, WebGPU & creative workflows, configurable thinking levels, and adaptive dark mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

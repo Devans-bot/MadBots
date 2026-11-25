@@ -1,0 +1,64 @@
+PERSONAL FOOD MACRO REFERENCE
+=============================
+
+Purpose:
+Reference values for calculating my meals. Values are per 100 g or 100 ml unless
+the serving/unit is stated. Use my supplied values when calculating my diet.
+
+IMPORTANT TRACKING RULES
+-----------------------
+- Cooked rice: count calories, but count protein as 0 g.
+- Cooked dal: count calories, but count protein as 0 g.
+- Maggi: count calories, but count protein as 0 g.
+- Soya chunks are weighed dry/raw.
+- Chicken breast is weighed raw unless I specify otherwise.
+- Whole eggs are counted per egg.
+- Do not add foods from an older meal plan unless I mention them again.
+
+PERSONAL MACRO TABLE
+--------------------
+
+Food item                  Basis       Calories (kcal)   Protein (g)   Notes
+-------------------------  ----------  ---------------  ------------  ------------------------------
+Oats                       100 g       390              25            Updated protein 25g
+Whole milk                 100 ml      60               3.2
+Soya chunks (dry)          100 g       350              52
+Paneer                     100 g       265              20
+Besan                      100 g       386              22
+Sattu                      100 g       410              23
+Chicken breast (raw)       100 g       165              31
+Cooked rice                100 g       130              0             Protein excluded by request
+Whole egg                  1 egg       70               6
+Banana                     100 g       89               1.1
+Suji                       100 g       360              12            Estimate
+Mustard oil                100 g       900              0
+Ghee                       100 g       900              0
+Peanut butter              100 g       653              23            User-provided label/value
+Maggi                      1 x ₹14 pkt 288              0             Protein excluded by request
+Suji pasta                 100 g       361              12
+Cheese                     100 g       311              20
+Sugar                      100 g       387              0
+Roti                       100 g       300              8
+Cooked dal                 100 g       120              0             Protein excluded by request
+Potato                     100 g       110              0
+
+ADDITIONAL SERVING REFERENCES
+-----------------------------
+Whole egg                  1 egg       70 kcal          6 g protein
+Maggi                      1 ₹14 pack  288 kcal         0 g protein counted
+
+NOTES / VALUES NOT FIXED
+------------------------
+- Oats: an older label value of 393 kcal and 12.6 g protein per 100 g appeared
+  in an earlier conversation. The current personal tracking convention is
+  390 kcal and 25 g protein per 100 g; use the current value unless I provide
+  a new label.
+- Some earlier meal calculations used estimates for foods such as brown bread
+  and curd. No single confirmed personal reference value is stored here, so
+  do not treat those estimates as fixed values.
+- Carbohydrates and fats are not listed where I have not supplied a reliable
+  personal value. Do not invent them.
+- Food brands, preparation methods, moisture content, and serving sizes can
+  change actual nutrition values. Prefer a package label when I provide one.
+
+END OF PERSONAL FOOD MACRO REFERENCE

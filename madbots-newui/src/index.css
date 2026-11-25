@@ -1,0 +1,172 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-body: "DM Sans", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand-blue: #0066ff;
+  --color-brand-blue-dark: #0050cb;
+  --color-brand-pink: #ff2b85;
+  --color-brand-magenta: #ff1493;
+  --color-surface-canvas: #f9f9f8;
+  --color-surface-subtle: #f3f4f3;
+  --color-surface-muted: #eeeeed;
+  --color-ink-charcoal: #1a1c1c;
+}
+
+@layer base {
+  html,
+  body {
+    width: 100%;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+}
+
+/* Signature MaDbotS surface utilities */
+.madbots-card-glow {
+  box-shadow:
+    rgba(0, 210, 255, 0.4) 0px 8px 24px -4px,
+    rgba(0, 180, 255, 0.3) 0px 2px 10px -2px;
+}
+
+.dark .madbots-card-glow {
+  box-shadow:
+    rgba(0, 140, 255, 0.22) 0px 10px 28px -6px,
+    rgba(0, 0, 0, 0.45) 0px 4px 12px -2px;
+}
+
+.madbots-header-shadow {
+  box-shadow:
+    rgba(0, 0, 0, 0.07) 0px 8px 24px -4px,
+    rgba(0, 0, 0, 0.04) 0px 2px 6px -1px;
+}
+
+.dark .madbots-header-shadow {
+  box-shadow:
+    rgba(0, 0, 0, 0.45) 0px 10px 28px -4px,
+    rgba(0, 0, 0, 0.3) 0px 2px 8px -1px;
+}
+
+.madbots-sheet-glow {
+  box-shadow:
+    rgba(0, 210, 255, 0.42) 0px -8px 24px -4px,
+    rgba(0, 210, 255, 0.26) 0px -2px 10px -1px,
+    rgba(0, 0, 0, 0.08) 0px -8px 28px,
+    rgba(0, 0, 0, 0.14) 0px 16px 36px;
+}
+
+.dark .madbots-sheet-glow {
+  box-shadow:
+    rgba(0, 162, 255, 0.32) 0px -8px 26px -4px,
+    rgba(0, 162, 255, 0.18) 0px -2px 12px -1px,
+    rgba(0, 0, 0, 0.55) 0px -10px 30px;
+}
+
+.madbots-chat-neon-frame {
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgba(230, 231, 236, 0) 0px,
+      rgba(230, 231, 236, 0) 20px,
+      #e6e7ec 50px,
+      #e6e7ec 100%
+    ),
+    linear-gradient(
+      90deg,
+      #38bdf8 0%,
+      #00d4ff 26%,
+      #0066ff 50%,
+      #00d4ff 74%,
+      #38bdf8 100%
+    );
+  box-shadow:
+    0 -3px 13px -1px rgba(0, 174, 255, 0.38),
+    0 -1px 5px 0px rgba(0, 102, 255, 0.28);
+}
+
+.dark .madbots-chat-neon-frame {
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgba(39, 39, 42, 0) 0px,
+      rgba(39, 39, 42, 0) 20px,
+      #27272a 52px,
+      #27272a 100%
+    ),
+    linear-gradient(
+      90deg,
+      #ff7ac6 0%,
+      #ff2b85 28%,
+      #ff1493 50%,
+      #ff2b85 72%,
+      #ff5ca8 100%
+    );
+  box-shadow:
+    0 -3px 14px -1px rgba(255, 43, 133, 0.5),
+    0 -1px 6px 0px rgba(255, 20, 147, 0.35);
+}
+
+.madbots-graph-grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.dark .madbots-graph-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.madbots-charcoal-backdrop {
+  background: linear-gradient(
+    rgb(26, 28, 28) 0%,
+    rgb(43, 47, 56) 32%,
+    rgb(229, 232, 236) 78%,
+    rgb(249, 249, 248) 100%
+  );
+}
+
+.dark .madbots-charcoal-backdrop {
+  background: linear-gradient(
+    rgb(14, 16, 19) 0%,
+    rgb(24, 27, 34) 38%,
+    rgb(18, 20, 24) 100%
+  );
+}
+
+/* Hide scrollbars cleanly in horizontal chip trays */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

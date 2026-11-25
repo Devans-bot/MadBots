@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="utf-8">
+  <title>MaDbotS Prototyping Platform</title>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#f9f9f8",
+            surface: "#f9f9f8",
+            "surface-dim": "#f3f4f3",
+            "surface-container": "#eeeeed",
+            "surface-container-low": "#f3f4f3",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-high": "#e8e8e7",
+            "surface-container-highest": "#e2e2e2",
+            "on-surface": "#1a1c1c",
+            "on-surface-variant": "#424656",
+            outline: "#727687",
+            "outline-variant": "#e2e4ea",
+            primary: "#0066ff",
+            "primary-container": "#0050cb",
+            secondary: "#ff1493",
+            "secondary-container": "#e40a65",
+            "accent-pink": "#FF2B85",
+            "accent-blue": "#0066FF"
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            headline: ['Plus Jakarta Sans', 'sans-serif'],
+            body: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    @layer base {
+      html, body {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+      .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+
+  <!-- React 18 & React Router v6 Scripts -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+  <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+  <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-white text-zinc-950 flex flex-col min-h-screen antialiased select-none">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { createRoot } = ReactDOM;
+    const { MemoryRouter, Routes, Route, Link, useNavigate } = ReactRouterDOM;
+
+    // --- Screen 1: Bot List (HomeScreen) ---
+    function HomeScreen() {
+      const navigate = useNavigate();
+
+      return (
+        <div className="bg-white text-zinc-950 flex flex-col min-h-screen selection:bg-black selection:text-white antialiased relative overflow-x-hidden">
+          {/* Subtle Tally hand-drawn playful background vector doodles */}
+          <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-40">
+            <svg className="absolute top-[20%] right-8 w-8 h-8 text-[#FF2B85] stroke-current fill-none stroke-[3] stroke-linecap-round" viewBox="0 0 24 24">
+              <line x1="5" x2="19" y1="19" y2="5"></line>
+            </svg>
+            <svg className="absolute bottom-12 right-4 w-14 h-14 text-zinc-400 stroke-current fill-none stroke-[1.5] rotate-12" viewBox="0 0 40 40">
+              <path d="M8 32 C 16 30, 24 24, 28 12 M20 10 L29 11 L28 20" strokeLinecap="round" strokeLinejoin="round"></path>
+            </svg>
+            <svg className="absolute bottom-[28%] left-8 w-20 h-20 text-zinc-400 stroke-current fill-none -rotate-6" viewBox="0 0 64 64" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M32 10 L32 18"></path>
+              <circle cx="32" cy="8" r="2.5"></circle>
+              <rect x="18" y="18" width="28" height="24" rx="6" ry="6"></rect>
+              <circle cx="26" cy="28" r="2.5" fill="currentColor"></circle>
+              <circle cx="38" cy="28" r="2.5" fill="currentColor"></circle>
+              <path d="M27 35 Q32 39 37 35"></path>
+              <path d="M13 28 L18 28"></path>
+              <path d="M46 28 L51 28"></path>
+              <path d="M24 42 L24 48 L40 48 L40 42"></path>
+            </svg>
+            <svg className="absolute bottom-[36%] right-10 w-12 h-12 text-zinc-400 stroke-current fill-none rotate-12" viewBox="0 0 40 40" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 8 C10 8 9 12 9 15 C9 18 6 19 4 20 C6 21 9 22 9 25 C9 28 10 32 14 32"></path>
+              <path d="M26 8 C30 8 31 12 31 15 C31 18 34 19 36 20 C34 21 31 22 31 25 C31 28 30 32 26 32"></path>
+            </svg>
+            <svg className="absolute bottom-[18%] left-16 w-16 h-16 text-zinc-400 stroke-current fill-none rotate-3" viewBox="0 0 48 48" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 14 C10 9 14 6 24 6 C34 6 38 9 38 18 C38 27 34 30 24 30 C20 30 17 31 12 34 C13 31 13 29 12 28 C10 25 10 20 10 14 Z"></path>
+              <circle cx="19" cy="18" r="1.5" fill="currentColor"></circle>
+              <circle cx="24" cy="18" r="1.5" fill="currentColor"></circle>
+              <circle cx="29" cy="18" r="1.5" fill="currentColor"></circle>
+            </svg>
+            <svg className="absolute bottom-[10%] left-[45%] w-14 h-10 text-zinc-400 stroke-current fill-none -rotate-12" viewBox="0 0 48 32" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 6 L4 16 L14 26"></path>
+              <path d="M20 28 L28 4"></path>
+              <path d="M34 6 L44 16 L34 26"></path>
+            </svg>
+            <svg className="absolute bottom-[24%] right-[28%] w-7 h-7 text-[#FF2B85] stroke-current fill-none stroke-[2] stroke-linecap-round" viewBox="0 0 24 24">
+              <path d="M12 2 L12 22 M2 12 L22 12 M5 5 L19 19 M5 19 L19 5"></path>
+            </svg>
+            <svg className="absolute bottom-[44%] left-[22%] w-5 h-5 text-zinc-400 stroke-current fill-none stroke-[1.8] stroke-linecap-round" viewBox="0 0 24 24">
+              <path d="M12 3 Q12 12 3 12 Q12 12 12 21 Q12 12 21 12 Q12 12 12 3 Z" fill="none"></path>
+            </svg>
+          </div>
+
+          {/* Minimal Tally Style Header */}
+          <header className="sticky top-0 z-40 backdrop-blur-md border-b border-zinc-100 pt-safe bg-white" style={{ backgroundColor: 'rgb(255, 255, 255)', boxShadow: 'rgba(0, 0, 0, 0.07) 0px 8px 24px -4px, rgba(0, 0, 0, 0.04) 0px 2px 6px -1px', borderBottomLeftRadius: '27px', borderBottomRightRadius: '27px' }}>
+            <div className="h-16 px-6 max-w-xl mx-auto flex items-center justify-between rounded-b-2xl shadow-sm bg-white" style={{ borderBottomLeftRadius: '27px', borderBottomRightRadius: '27px' }}>
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => navigate('/')}>
+                <span className="font-black text-2xl tracking-tighter text-zinc-950">MaDbotS<span className="text-[#FF2B85] font-black">*</span></span>
+              </div>
+              <button 
+                type="button" 
+                aria-label="Settings" 
+                onClick={() => navigate('/settings')}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 transition-all duration-150 cursor-pointer active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[24px]">settings</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Main Hero & AI Chatbots List */}
+          <main className="flex-1 relative z-10 w-full max-w-xl mx-auto pt-8 pb-16 flex flex-col px-4">
+            <div className="pb-4 text-left" style={{ paddingBottom: '21px' }}>
+              <h1 className="text-[15px] font-bold tracking-tight text-zinc-950 flex items-center gap-1.5">
+                <span>Talk.</span> <span>Think.</span> 
+                <span className="relative inline-block">
+                  Build.
+                  <svg className="absolute left-0 -bottom-1 w-full h-2 text-[#FF2B85] fill-none overflow-visible stroke-current stroke-[2.5] stroke-linecap-round stroke-linejoin-round" viewBox="0 0 100 12" preserveAspectRatio="none">
+                    <path d="M2 8 C 20 2, 35 12, 50 6 C 65 1, 80 11, 98 5"></path>
+                  </svg>
+                </span>
+              </h1>
+            </div>
+
+            <div className="flex flex-col pb-safe" style={{ gap: '10px' }}>
+              {/* Bot Card 1: Nexus CodeBot */}
+              <div 
+                onClick={() => navigate('/chat')}
+                className="group relative w-full bg-white border border-zinc-200/90 hover:border-zinc-900 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-md transition-all duration-150 cursor-pointer active:scale-[0.99]" 
+                style={{ borderRadius: '10px', boxShadow: 'rgba(0, 210, 255, 0.4) 0px 8px 24px -4px, rgba(0, 180, 255, 0.3) 0px 2px 10px -2px' }}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="relative flex-shrink-0">
+                    <img 
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiidTt3DzOuVjWh6B5WW_MVlL8LgjDRJqvxEP1FLpZTWWjKDdhJLnkUdeKOYuLZHsjDSkohfX_JYpVrHYugg1xcGAVglwyeNWENcpDc_8D7qdjUVEgkJQt_FSfUqYW7LhLelj8WBqF2N4k7g8W8dLu-IBpOsv9FqC0DBocumKAxmovU_VDmI9NOSZZ5h-xvgR7nPG9wsglyXB0OnhZoIOf5fQRh1M8PBRsklh4EE-1G-0T6abhPyF5" 
+                      alt="Nexus CodeBot Avatar" 
+                      className="w-11 h-11 rounded-xl object-cover border border-zinc-200/60" 
+                      style={{ border: '1px solid rgb(209, 213, 219)' }} 
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[15px] font-bold text-zinc-950 truncate">Nexus CodeBot</span>
+                        <span className="px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[10px] font-semibold">GPT-4o</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#0066FF] flex-shrink-0" style={{ whiteSpace: 'nowrap' }}>Just now</span>
+                    </div>
+                    <p className="font-body text-[13px] text-zinc-600 font-normal line-clamp-1 mb-2.5">
+                      Refactored your async query handler with 40% less latency! ⚡
+                    </p>
+                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-zinc-100 text-zinc-500 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded">
+                          <span className="material-symbols-outlined text-[13px] text-zinc-500">code</span> TypeScript
+                        </span>
+                        <span className="text-emerald-600 font-semibold">180ms</span>
+                      </div>
+                      <span className="w-5 h-5 rounded-full bg-zinc-950 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bot Card 2: Aura Creative */}
+              <div 
+                onClick={() => navigate('/settings')}
+                className="group relative w-full bg-white border border-zinc-200/90 hover:border-zinc-900 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-md transition-all duration-150 cursor-pointer active:scale-[0.99]" 
+                style={{ borderRadius: '10px', boxShadow: 'rgba(0, 210, 255, 0.4) 0px 8px 24px -4px, rgba(0, 180, 255, 0.3) 0px 2px 10px -2px' }}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-900 flex items-center justify-center font-bold">
+                      <span className="material-symbols-outlined text-[24px]">palette</span>
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center">
+                      <span className="w-2 h-2 bg-amber-400 rounded-full"></span>
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[15px] font-bold text-zinc-950 truncate">Aura Creative</span>
+                        <span className="px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[10px] font-semibold">FLUX.1</span>
+                      </div>
+                      <span className="text-[11px] font-medium text-zinc-400 flex-shrink-0">4m ago</span>
+                    </div>
+                    <p className="font-body text-[13px] text-zinc-500 font-normal line-clamp-1 mb-2.5">
+                      Rendered 4 cyberpunk neo-brutalist covers for your mixtape deck.
+                    </p>
+                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-zinc-100 text-zinc-500 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded">
+                          <span className="material-symbols-outlined text-[13px] text-zinc-500">image</span> 4 Previews
+                        </span>
+                      </div>
+                      <span className="w-5 h-5 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-bold flex items-center justify-center">3</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // --- Screen 2: Interactive Chat Screen ---
+    function ChatScreen() {
+      const navigate = useNavigate();
+      const [messages, setMessages] = useState([
+        {
+          id: 1,
+          type: 'divider',
+          text: 'Today, 14:28'
+        },
+        {
+          id: 2,
+          type: 'user',
+          text: 'How do I structure an ultra-fast WebGPU compute shader pipeline for real-time particle simulation with collision detection?'
+        },
+        {
+          id: 3,
+          type: 'bot_code',
+          summary: 'Here is the ideal architecture for 60fps mobile WebGPU compute! ⚡ Use a ping-pong storage buffer setup paired with a uniform grid spatial hash to evaluate proximity in O(N) time.',
+          code: `// Ping-pong compute pass
+@group(0) @binding(0) var<storage, read> src : array<Particle>;
+@group(0) @binding(1) var<storage, read_write> dst : array<Particle>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id : vec3u) {
+  let i = id.x;
+  if (i >= arrayLength(&src)) { return; }
+  var p = src[i];
+  p.pos += p.vel * simParams.dt;
+  dst[i] = p;
+}`
+        },
+        {
+          id: 4,
+          type: 'user',
+          text: 'What workgroup size do you recommend for Apple Silicon & Snapdragon mobile GPUs, and when should I trigger workgroupBarrier()?'
+        },
+        {
+          id: 5,
+          type: 'bot_note',
+          text: 'For maximum wave occupancy across both Mali and Adreno/Apple GPUs, use workgroup_size(64, 1, 1). Only invoke workgroupBarrier() when sharing neighbour tile indexes in var<workgroup> memory.',
+          noteTitle: 'Hardware note:',
+          noteDesc: '64 threads align with Qualcomm Adreno wave sizes and prevent idle SIMD lanes. Keeps dispatch latency under 0.4ms for 50,000 live particles.'
+        },
+        {
+          id: 6,
+          type: 'user',
+          text: 'Can we optimize the buffer binding layout to reduce pipeline switches during render passes?'
+        },
+        {
+          id: 7,
+          type: 'bot_bullets',
+          intro: 'Yes! You can eliminate up to 70% of draw-call overhead by segregating frequency of change into distinct bind groups:',
+          points: [
+            { title: 'Group 0 (Per-Frame):', desc: 'Global view-projection & delta time uniforms. Bound once per frame.' },
+            { title: 'Group 1 (Per-Pass):', desc: 'Particle compute buffers (ping-pong ping/pong targets).' },
+            { title: 'Dynamic Offsets:', desc: 'Pack simulation params into one large uniform ring buffer with hasDynamicOffset: true instead of re-binding layout descriptors.' }
+          ]
+        },
+        {
+          id: 8,
+          type: 'user',
+          text: 'Awesome! What about fallback support for devices without subgroup operations?'
+        },
+        {
+          id: 9,
+          type: 'bot_note',
+          text: "For older Vulkan/Metal devices where subgroups isn't available in adapter features, emulate parallel reductions with a classical tree reduction using var<workgroup> shared array:",
+          noteTitle: 'Fallback Pattern:',
+          noteDesc: 'Perform log2 stride steps with workgroupBarrier(). On workgroup size 64, this takes only 6 barrier synchronization rounds—costing negligible milliseconds while preserving 100% device compatibility.'
+        }
+      ]);
+
+      const [inputValue, setInputValue] = useState('');
+      const [copied, setCopied] = useState(false);
+
+      const copySnippet = () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      };
+
+      const handleSend = (text) => {
+        const msgText = (typeof text === 'string' ? text : inputValue).trim();
+        if (!msgText) return;
+
+        const newMsg = {
+          id: Date.now(),
+          type: 'user',
+          text: msgText
+        };
+        
+        const autoReply = {
+          id: Date.now() + 1,
+          type: 'bot_note',
+          text: `Optimizing parameters for: "${msgText}". Applying low-latency pipeline bindings...`,
+          noteTitle: 'Execution Insight:',
+          noteDesc: 'Kernel latency reduced by 14% with direct bind group streaming.'
+        };
+
+        setMessages((prev) => [...prev, newMsg, autoReply]);
+        setInputValue('');
+      };
+
+      return (
+        <div 
+          className="text-[#1a1c1c] flex flex-col min-h-screen antialiased select-none bg-[#1a1c1c]"
+          style={{
+            background: 'linear-gradient(rgb(26, 28, 28) 0%, rgb(43, 47, 56) 32%, rgb(229, 232, 236) 75%, rgb(249, 249, 248) 100%)',
+            height: '100vh',
+            maxHeight: '100dvh',
+            overflow: 'hidden',
+            paddingTop: '0px'
+          }}
+        >
+          {/* Header */}
+          <header className="w-full px-5 flex items-center justify-between z-20" style={{ paddingTop: '15px', paddingBottom: '15px' }}>
+            <div className="flex items-center gap-1 cursor-pointer" onClick={() => navigate('/')}>
+              <span className="text-white font-extrabold text-[22px] tracking-tight font-headline">MaDbotS</span>
+              <span className="text-[#ff1493] font-bold text-[24px] leading-none select-none">*</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => navigate('/')} 
+                aria-label="Back to Bots" 
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white flex items-center justify-center transition-all active:scale-90"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </button>
+              <button 
+                onClick={() => navigate('/settings')} 
+                aria-label="Settings" 
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white flex items-center justify-center transition-all active:scale-90"
+              >
+                <span className="material-symbols-outlined text-[20px]">settings</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Main Area: Chat Area */}
+          <main className="flex-1 flex flex-col pt-safe px-0 bg-[#1a1c1c]" style={{ paddingTop: '6px', background: 'transparent', overflow: 'hidden', flex: '1 1 0%', minHeight: 0, position: 'relative' }}>
+            <div 
+              className="flex-1 w-full bg-white border-[#e8e8e7] flex flex-col relative transition-all z-20 px-3"
+              style={{
+                borderTopLeftRadius: '28px',
+                borderTopRightRadius: '28px',
+                boxShadow: 'rgba(0, 210, 255, 0.45) 0px -8px 24px -4px, rgba(0, 210, 255, 0.3) 0px -2px 10px -1px, rgba(0, 0, 0, 0.08) 0px -8px 28px, rgba(0, 0, 0, 0.14) 0px 16px 36px, rgba(0, 0, 0, 0.05) 0px 2px 10px',
+                paddingTop: '12px',
+                paddingBottom: '160px',
+                backgroundImage: 'linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px), linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+                overflowY: 'auto'
+              }}
+            >
+              {/* Pill Handle */}
+              <div className="bg-[#e2e2e2] rounded-full mx-auto mb-4" style={{ width: '72px', height: '6px' }}></div>
+
+              {/* Bot Info Header in Chat Area */}
+              <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-[#e2e4ea] w-full mx-auto px-2 py-1.5 rounded-2xl bg-[#f9f9f8]/80 backdrop-blur-md">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative shrink-0">
+                    <img 
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzmHkxa0axnkBmfuF4cSsFKBAHihmChtJL3Mem1xdeDMnn7GYrBz9qBCnDOuMlrd-A1ilhOm_e2ZlZah5b3jI0ZBbmhY071345cc5ZlAPK8GdFfw7-GOY8HffJlkNYlHjYLNL8Up6J09pNp6LsBU0gKHBM7b8HvQtdgf6CfAehcqftTVe6mhjfOgNuRodawGFAKXbAlg29DppYQB_2H2clFVNOflOHm76f1alL9khiWL_6pFD8P8Wg" 
+                      alt="Nexus CodeBot" 
+                      className="w-9 h-9 rounded-xl object-cover shadow-sm border border-white/20" 
+                      style={{ border: '1px solid rgb(209, 213, 219)' }} 
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#28c840] border border-white"></span>
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[15px] text-[#1a1c1c] leading-tight tracking-tight">Nexus CodeBot</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Active</span>
+                </div>
+              </div>
+
+              {/* Message Flow */}
+              <div className="flex flex-col gap-5 w-full mx-auto" style={{ paddingBottom: '32px' }}>
+                {messages.map((msg) => {
+                  if (msg.type === 'divider') {
+                    return (
+                      <div key={msg.id} className="flex items-center justify-center my-1">
+                        <span className="px-3 py-0.5 rounded-full bg-[#f9f9f8] text-[#727687] text-[11px] font-medium border border-[#eeeeed]">
+                          {msg.text}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  if (msg.type === 'user') {
+                    return (
+                      <div key={msg.id} className="flex flex-col items-end w-full pl-6">
+                        <div className="bg-[#1a1c1c] text-white px-4 py-3 rounded-2xl rounded-br-sm shadow-sm max-w-[88%] text-[14px] leading-relaxed">
+                          {msg.text}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (msg.type === 'bot_code') {
+                    return (
+                      <div key={msg.id} className="flex flex-col items-start w-full pr-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-5 h-5 rounded-md bg-[#1a1c1c] text-white flex items-center justify-center text-[10px] font-bold">
+                            <span>N</span>
+                          </div>
+                        </div>
+                        <div className="bg-[#f9f9f8] border border-[#e8e8e7] rounded-2xl p-4 w-full flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]" style={{ borderRadius: '28px', padding: '20px 18px' }}>
+                          <p className="text-[14px] leading-relaxed text-[#1a1c1c]">
+                            Here is the ideal architecture for 60fps mobile WebGPU compute! <span className="inline-block">⚡</span> Use a <span className="font-semibold text-[#0066ff] underline decoration-[#0066ff]/40 decoration-2 underline-offset-2">ping-pong storage buffer</span> setup paired with a uniform grid spatial hash to evaluate proximity in <span className="font-semibold text-[#e40a65]">O(N)</span> time.
+                          </p>
+                          <div className="bg-white border border-[#e2e4ea] rounded-xl overflow-hidden shadow-sm">
+                            <div className="flex items-center justify-between px-3.5 py-2 bg-[#f3f4f3] border-b border-[#e8e8e7]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]/40"></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d89e24]/40"></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]/40"></span>
+                                <span className="font-mono text-[11px] text-[#424656] font-medium ml-2">particle_sim.wgsl</span>
+                              </div>
+                              <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-white text-[#727687] border border-[#e2e2e2]">WGSL</span>
+                            </div>
+                            <pre className="font-mono text-[12px] leading-relaxed text-[#1a1c1c] p-3.5 overflow-x-auto bg-white">
+                              <code>{msg.code}</code>
+                            </pre>
+                            <div className="flex items-center gap-2 p-2.5 bg-[#f9f9f8] border-t border-[#e8e8e7]">
+                              <button onClick={copySnippet} className="flex-1 py-1.5 px-3 rounded-lg bg-white hover:bg-[#f3f4f3] border border-[#e2e4ea] text-[#1a1c1c] text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                                <span className="material-symbols-outlined text-[16px] text-[#727687]">{copied ? 'check' : 'content_copy'}</span>
+                                <span>{copied ? 'Copied!' : 'Copy Code'}</span>
+                              </button>
+                              <button onClick={() => alert('Diff applied to current workspace buffer!')} className="flex-1 py-1.5 px-3 rounded-lg bg-[#0066ff] hover:bg-[#0050cb] text-white text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95">
+                                <span className="material-symbols-outlined text-[16px]">call_split</span>
+                                <span>Apply Diff</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (msg.type === 'bot_note') {
+                    return (
+                      <div key={msg.id} className="flex flex-col items-start w-full pr-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-5 h-5 rounded-md bg-[#1a1c1c] text-white flex items-center justify-center text-[10px] font-bold">
+                            <span>N</span>
+                          </div>
+                        </div>
+                        <div className="bg-[#f9f9f8] border border-[#e8e8e7] rounded-2xl p-4 w-full flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                          <p className="text-[14px] leading-relaxed text-[#1a1c1c]">{msg.text}</p>
+                          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-[#e2e4ea]">
+                            <span className="material-symbols-outlined text-[#0066ff] text-[18px] shrink-0 mt-0.5">memory</span>
+                            <div className="text-[12px] leading-relaxed text-[#424656]">
+                              <span className="font-bold text-[#1a1c1c]">{msg.noteTitle} </span>
+                              {msg.noteDesc}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (msg.type === 'bot_bullets') {
+                    return (
+                      <div key={msg.id} className="flex flex-col items-start w-full pr-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-5 h-5 rounded-md bg-[#1a1c1c] text-white flex items-center justify-center text-[10px] font-bold">
+                            <span>N</span>
+                          </div>
+                        </div>
+                        <div className="bg-[#f9f9f8] border border-[#e8e8e7] rounded-2xl p-4 w-full flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                          <p className="text-[14px] leading-relaxed text-[#1a1c1c]">
+                            {msg.intro}
+                          </p>
+                          <div className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-[#e2e4ea] text-[13px] leading-relaxed text-[#424656]">
+                            {msg.points.map((pt, idx) => (
+                              <div key={idx} className="flex items-start gap-2">
+                                <span className="text-[#0066ff] font-bold">•</span>
+                                <span><strong className="text-[#1a1c1c]">{pt.title}</strong> {pt.desc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            </div>
+          </main>
+
+          {/* Docked Bottom Interaction Unit */}
+          <div 
+            className="bottom-0 left-0 right-0 z-50 w-full backdrop-blur-md text-white px-4 pt-2 pb-safe fixed"
+            style={{
+              paddingTop: '20px',
+              paddingBottom: '16px',
+              background: 'linear-gradient(rgba(26, 28, 28, 0) 0%, rgba(26, 28, 28, 0.85) 30%, rgba(26, 28, 28, 0.98) 100%)',
+              backdropFilter: 'blur(12px)'
+            }}
+          >
+            <div className="mx-auto max-w-xl flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
+                <button 
+                  onClick={() => handleSend('Explain workgroup shared memory')} 
+                  className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white/90 text-[12px] font-medium border border-white/10 whitespace-nowrap transition-all active:scale-95 shrink-0"
+                >
+                  Explain workgroup shared memory
+                </button>
+                <button 
+                  onClick={() => handleSend('Add spatial hash grid')} 
+                  className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white/90 text-[12px] font-medium border border-white/10 whitespace-nowrap transition-all active:scale-95 shrink-0"
+                >
+                  Add spatial hash grid
+                </button>
+                <button 
+                  onClick={() => handleSend('Show render pipeline code')} 
+                  className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white/90 text-[12px] font-medium border border-white/10 whitespace-nowrap transition-all active:scale-95 shrink-0"
+                >
+                  Show render pipeline code
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-3 py-1.5 shadow-sm">
+                <button 
+                  type="button" 
+                  aria-label="Attach file" 
+                  onClick={() => alert('Attachments dialog opened')}
+                  className="w-8 h-8 rounded-full text-white/70 hover:text-white flex items-center justify-center transition-all shrink-0 active:scale-90"
+                >
+                  <span className="material-symbols-outlined text-[20px]">add</span>
+                </button>
+                <input 
+                  type="text" 
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Ask Nexus CodeBot..." 
+                  className="flex-1 bg-transparent border-0 text-[14px] text-white placeholder-white/50 focus:outline-none focus:ring-0 px-1 py-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSend();
+                  }}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => handleSend()} 
+                  aria-label="Send message" 
+                  className="w-8 h-8 rounded-full bg-[#0066ff] hover:bg-[#0050cb] text-white flex items-center justify-center transition-all shrink-0 active:scale-90 shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- Screen 3: Settings Screen ---
+    function SettingsScreen() {
+      const navigate = useNavigate();
+      const [isDarkMode, setIsDarkMode] = useState(true);
+      const [bot1Level, setBot1Level] = useState(2);
+      const [bot2Level, setBot2Level] = useState(1);
+      const [isSaved, setIsSaved] = useState(false);
+
+      const bot1Labels = [
+        'Low • Fast 250ms draft',
+        'Medium • Standard context',
+        'High • Extended reasoning',
+        'Max • Deep verification (64k)'
+      ];
+      const bot1Percentages = ['8%', '45%', '75%', '100%'];
+
+      const bot2Labels = [
+        'Low • Rapid brainstorm',
+        'Medium • Balanced speed',
+        'High • Rich artistic detail',
+        'Max • Cinematic quality (FLUX Pro)'
+      ];
+      const bot2Percentages = ['8%', '45%', '75%', '100%'];
+
+      const saveSettings = () => {
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 1600);
+      };
+
+      return (
+        <div 
+          className="text-[#1a1c1c] flex flex-col min-h-screen antialiased select-none bg-[#1a1c1c]"
+          style={{ background: 'linear-gradient(rgb(26, 28, 28) 0%, rgb(43, 47, 56) 32%, rgb(229, 232, 236) 75%, rgb(249, 249, 248) 100%)' }}
+        >
+          <main className="flex-1 flex flex-col pt-safe px-0 bg-[#1a1c1c] max-w-xl mx-auto w-full" style={{ paddingTop: '32px', background: 'transparent' }}>
+            <div className="flex flex-col w-full text-on-surface select-none pb-6">
+              
+              {/* Header Section */}
+              <div className="px-5 pt-3 pb-4 flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                  <button 
+                    aria-label="Go back" 
+                    onClick={() => navigate('/')} 
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white active:scale-95 transition-all shadow-sm cursor-pointer"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                  </button>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight text-white leading-none">Settings</h1>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => navigate('/chat')}
+                    className="px-3 py-1.5 rounded-full bg-white/10 text-white text-[12px] font-bold hover:bg-white/20 transition-all flex items-center gap-1"
+                  >
+                    <span>Open Chat</span>
+                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Rounded Sheet Canvas */}
+              <div className="relative bg-surface rounded-t-[32px] pt-6 px-4 space-y-6 shadow-xl">
+                {/* Sketch Accent Motif */}
+                <div className="flex items-center justify-between px-2 pt-1 pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-secondary text-[22px]">auto_awesome</span>
+                    <span className="font-bold text-on-surface tracking-tight text-[16px]">MaDbotS Config</span>
+                  </div>
+                  <svg className="w-16 h-4 text-secondary-container" fill="none" viewBox="0 0 70 16">
+                    <path d="M2 12C10 2 15 14 25 5C35 -4 40 15 50 6C58 -2 62 13 68 8" stroke="currentColor" strokeLinecap="round" strokeWidth="2.5"></path>
+                  </svg>
+                </div>
+
+                {/* Section 1: Dark Mode Switch */}
+                <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface">
+                        <span className="material-symbols-outlined text-[20px]">dark_mode</span>
+                      </div>
+                      <div>
+                        <p className="text-[16px] font-bold text-on-surface leading-snug">Dark Night Mode</p>
+                        <p className="text-[12px] text-on-surface-variant">Deep graphite theme for late night work</p>
+                      </div>
+                    </div>
+                    {/* Toggle Button */}
+                    <button 
+                      aria-label="Toggle theme" 
+                      onClick={() => setIsDarkMode(!isDarkMode)} 
+                      className={`w-13 h-7 px-0.5 rounded-full flex items-center transition-all duration-300 relative cursor-pointer ${isDarkMode ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                      style={{ width: '52px', height: '28px' }} 
+                      type="button"
+                    >
+                      <span 
+                        className={`w-6 h-6 rounded-full bg-surface-container-lowest shadow-md flex items-center justify-center transform transition-all duration-300 ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}
+                      >
+                        {isDarkMode && <span className="material-symbols-outlined text-[14px] text-primary">check</span>}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section 2: Bot 1 Box (Nexus CodeBot) */}
+                <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm space-y-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12">
+                        <img 
+                          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiidTt3DzOuVjWh6B5WW_MVlL8LgjDRJqvxEP1FLpZTWWjKDdhJLnkUdeKOYuLZHsjDSkohfX_JYpVrHYugg1xcGAVglwyeNWENcpDc_8D7qdjUVEgkJQt_FSfUqYW7LhLelj8WBqF2N4k7g8W8dLu-IBpOsv9FqC0DBocumKAxmovU_VDmI9NOSZZ5h-xvgR7nPG9wsglyXB0OnhZoIOf5fQRh1M8PBRsklh4EE-1G-0T6abhPyF5" 
+                          alt="Nexus CodeBot" 
+                          className="w-12 h-12 rounded-2xl object-cover" 
+                          style={{ border: '1px solid rgb(209, 213, 219)' }} 
+                        />
+                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-surface-container-lowest"></span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-on-surface text-[15px]">Nexus CodeBot</span>
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-primary uppercase tracking-wider font-bold text-[10px]">GPT-4o</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[11px]">Low-latency engineering agent</p>
+                      </div>
+                    </div>
+                    <span className="text-primary bg-primary/10 px-2 py-1 rounded-md font-semibold text-[10px]">Pro Active</span>
+                  </div>
+
+                  {/* Meter */}
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-on-surface flex items-center gap-1.5 text-[11px]">
+                        <span>Thinking level</span>
+                        <span className="text-[12px]">💡</span>
+                      </label>
+                      <span className="font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full text-[10px]">
+                        {bot1Labels[bot1Level]}
+                      </span>
+                    </div>
+
+                    <div className="relative py-2 px-1">
+                      <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden relative">
+                        <div className="h-full bg-primary rounded-full transition-all duration-200" style={{ width: bot1Percentages[bot1Level] }}></div>
+                      </div>
+                      <div className="flex justify-between items-center -mt-3.5 relative z-10 px-0.5">
+                        {[0, 1, 2, 3].map((step) => {
+                          const isActive = bot1Level >= step;
+                          const isCurrent = bot1Level === step;
+                          return (
+                            <button 
+                              key={step}
+                              aria-label={`Step ${step + 1}`} 
+                              onClick={() => setBot1Level(step)}
+                              className={`rounded-full flex items-center justify-center shadow-sm cursor-pointer focus:outline-none ring-2 ring-surface-container-lowest transition-all ${
+                                isCurrent 
+                                  ? 'w-6 h-6 bg-primary text-white scale-110 shadow-md' 
+                                  : isActive 
+                                    ? 'w-5 h-5 bg-primary text-white' 
+                                    : 'w-5 h-5 bg-surface-container-highest text-on-surface-variant'
+                              }`} 
+                              type="button"
+                            ></button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 font-medium text-on-surface-variant text-[10px]">
+                        <span className={`cursor-pointer ${bot1Level === 0 ? 'font-bold text-primary' : ''}`} onClick={() => setBot1Level(0)}>Low</span>
+                        <span className={`cursor-pointer ${bot1Level === 1 ? 'font-bold text-primary' : ''}`} onClick={() => setBot1Level(1)}>Medium</span>
+                        <span className={`cursor-pointer ${bot1Level === 2 ? 'font-bold text-primary' : ''}`} onClick={() => setBot1Level(2)}>High</span>
+                        <span className={`cursor-pointer ${bot1Level === 3 ? 'font-bold text-primary' : ''}`} onClick={() => setBot1Level(3)}>Max</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Bot 2 Box (Madrix Creative) */}
+                <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm space-y-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-secondary shadow-sm">
+                        <span className="material-symbols-outlined text-[24px]">palette</span>
+                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-secondary border-2 border-surface-container-lowest"></span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-on-surface text-[15px]">Madrix Creative</span>
+                          <span className="px-2 py-0.5 rounded bg-pink-100 text-[#ff1493] uppercase tracking-wider font-bold text-[10px]">FLUX.1</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[11px]">Lifestyle & creative generation</p>
+                      </div>
+                    </div>
+                    <span className="text-secondary bg-secondary/10 px-2 py-1 rounded-md font-semibold text-[10px]">Standard</span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-on-surface flex items-center gap-1.5 text-[11px]">
+                        <span>Thinking level</span>
+                        <span className="text-[12px]">💡</span>
+                      </label>
+                      <span className="font-bold text-secondary bg-secondary/10 px-2.5 py-0.5 rounded-full text-[10px]">
+                        {bot2Labels[bot2Level]}
+                      </span>
+                    </div>
+
+                    <div className="relative py-2 px-1">
+                      <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden relative">
+                        <div className="h-full bg-secondary rounded-full transition-all duration-200" style={{ width: bot2Percentages[bot2Level] }}></div>
+                      </div>
+                      <div className="flex justify-between items-center -mt-3.5 relative z-10 px-0.5">
+                        {[0, 1, 2, 3].map((step) => {
+                          const isActive = bot2Level >= step;
+                          const isCurrent = bot2Level === step;
+                          return (
+                            <button 
+                              key={step}
+                              aria-label={`Step ${step + 1}`} 
+                              onClick={() => setBot2Level(step)}
+                              className={`rounded-full flex items-center justify-center shadow-sm cursor-pointer focus:outline-none ring-2 ring-surface-container-lowest transition-all ${
+                                isCurrent 
+                                  ? 'w-6 h-6 bg-secondary text-white scale-110 shadow-md' 
+                                  : isActive 
+                                    ? 'w-5 h-5 bg-secondary text-white' 
+                                    : 'w-5 h-5 bg-surface-container-highest text-on-surface-variant'
+                              }`} 
+                              type="button"
+                            ></button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 font-medium text-on-surface-variant text-[10px]">
+                        <span className={`cursor-pointer ${bot2Level === 0 ? 'font-bold text-secondary' : ''}`} onClick={() => setBot2Level(0)}>Low</span>
+                        <span className={`cursor-pointer ${bot2Level === 1 ? 'font-bold text-secondary' : ''}`} onClick={() => setBot2Level(1)}>Medium</span>
+                        <span className={`cursor-pointer ${bot2Level === 2 ? 'font-bold text-secondary' : ''}`} onClick={() => setBot2Level(2)}>High</span>
+                        <span className={`cursor-pointer ${bot2Level === 3 ? 'font-bold text-secondary' : ''}`} onClick={() => setBot2Level(3)}>Max</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Action Buttons */}
+                <div className="pt-2 pb-6 space-y-3">
+                  <button 
+                    onClick={saveSettings}
+                    className={`w-full py-3.5 px-6 rounded-full font-bold text-[15px] flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md cursor-pointer ${
+                      isSaved ? 'bg-emerald-600 text-white' : 'bg-primary hover:bg-primary-container text-white'
+                    }`}
+                    style={!isSaved ? { backgroundColor: 'rgb(30, 34, 41)', color: 'rgb(255, 255, 255)' } : {}}
+                    type="button"
+                  >
+                    <span>{isSaved ? 'Saved Configuration!' : 'Save Preferences'}</span>
+                    <span className="material-symbols-outlined text-[18px]">{isSaved ? 'done_all' : 'save'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // --- Main Router & Container ---
+    function App() {
+      return (
+        <MemoryRouter initialEntries={["/"]}>
+          <Routes>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/chat" element={<ChatScreen />} />
+            <Route path="/settings" element={<SettingsScreen />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = createRoot(container);
+    root.render(<App />);
+  </script>
+</body>
+</html>
