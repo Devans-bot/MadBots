@@ -5,6 +5,9 @@ import { generateWithFallback } from "@/lib/gemini";
 import { cleanReply } from "@/lib/formatReply";
 import { runVerifyMacrosSkill } from "@/lib/skills";
 import { MACROS_TOOLS, handleMacrosToolCall } from "@/bots/madrix-macros/tools";
+import { callGroqMacroChief } from "@/bots/madrix-macros/groqMacro";
+import { callGroqBhima } from "@/bots/bhima-coach/groqBhima";
+import { callGroqDexter } from "@/bots/madrix-codes/groqDexter";
 
 type Msg = { role: "user" | "model"; text: string };
 type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
@@ -29,6 +32,7 @@ function getBotCredentials(botId: string) {
 }
 
 export async function POST(req: Request) {
+  const apiStartTime = performance.now();
   const { botId, messages, level, customConfig } = await req.json();
   const builtInBot = BOTS.find((b) => b.id === botId);
   if ((!builtInBot && !customConfig) || !Array.isArray(messages) || messages.length === 0) {
@@ -38,6 +42,29 @@ export async function POST(req: Request) {
     id: String(botId),
     name: "Custom Bot",
   };
+
+  // Route to Groq if key is present for built-in agents
+  if (bot.id === "madrix-macros" && (process.env.GROQ_API_KEY_MACROS || process.env.GROQ_API_KEY)) {
+    const groqRes = await callGroqMacroChief(messages as Msg[]);
+    if (groqRes.ok) {
+      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
+    }
+  }
+
+  if (bot.id === "bhima-coach" && (process.env.GROQ_API_KEY_BHIMA || process.env.GROQ_API_KEY)) {
+    const groqRes = await callGroqBhima(messages as Msg[]);
+    if (groqRes.ok) {
+      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
+    }
+  }
+
+  if (bot.id === "madrix-codes" && (process.env.GROQ_API_KEY_DEXTER || process.env.GROQ_API_KEY)) {
+    const groqRes = await callGroqDexter(messages as Msg[]);
+    if (groqRes.ok) {
+      return NextResponse.json({ reply: groqRes.reply, responseTime: groqRes.responseTime });
+    }
+  }
+
   const creds = builtInBot
     ? getBotCredentials(builtInBot.id)
     : {
@@ -130,5 +157,7 @@ export async function POST(req: Request) {
 
   const rawReply = parts.map((p) => p.text ?? "").join("");
   const reply = rawReply ? cleanReply(rawReply) : "No answer came back. Try again.";
-  return NextResponse.json({ reply });
+  const elapsed = Math.round(performance.now() - apiStartTime);
+  const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+  return NextResponse.json({ reply, responseTime });
 }

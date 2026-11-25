@@ -6,7 +6,7 @@ import { cleanReply } from "@/lib/formatReply";
 import { useSettings } from "@/lib/settings";
 import { ChatSkeletonList } from "./ChatSkeletonList";
 
-type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean };
+type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean; responseTime?: string };
 
 interface ChatDrawerProps {
   botId: string;
@@ -141,6 +141,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
 
     let reply = "Something went wrong. Try again.";
     let verified = false;
+    let responseTime: string | undefined;
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
@@ -155,9 +156,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       const d = await r.json();
       if (d.reply) reply = d.reply;
       if (d.verified) verified = true;
+      if (d.responseTime) responseTime = d.responseTime;
     } catch { }
 
-    const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified }];
+    const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];
     setMsgs(all);
     setBusy(false);
     try {
@@ -388,6 +390,14 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                             </button>
                           )}
                         </div>
+
+                        {/* Timing under bot's name with padding bottom of 5px */}
+                        {!isUser && msg.responseTime && (
+                          <div className="text-[10px] text-[var(--ui-muted)] font-mono pb-[5px] pt-1 flex items-center gap-1 leading-none select-none">
+                            <span className="text-[9px] opacity-75">⚡</span>
+                            <span>{msg.responseTime}</span>
+                          </div>
+                        )}
 
                         {/* Message Text (Poppins Regular) */}
                         <div

@@ -6,7 +6,7 @@ import gsap from "gsap";
 import { BOTS } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
 
-type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean };
+type Msg = { role: "user" | "model"; text: string; t: number; verified?: boolean; responseTime?: string };
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -80,6 +80,7 @@ export default function ChatPage() {
 
     let reply = "Something went wrong. Try again.";
     let verified = false;
+    let responseTime: string | undefined;
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
@@ -89,9 +90,10 @@ export default function ChatPage() {
       const d = await r.json();
       if (d.reply) reply = d.reply;
       if (d.verified) verified = true;
+      if (d.responseTime) responseTime = d.responseTime;
     } catch {}
 
-    const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified }];
+    const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];
     setMsgs(all);
     setBusy(false);
     try {
@@ -301,6 +303,12 @@ export default function ChatPage() {
                       </span>
                     )}
                   </div>
+                  {msg.responseTime && (
+                    <div className="text-[10px] text-[var(--ui-muted)] font-mono pb-[5px] flex items-center gap-1 leading-none select-none">
+                      <span className="text-[9px] opacity-75">⚡</span>
+                      <span>{msg.responseTime}</span>
+                    </div>
+                  )}
                   <div
                     className="bg-[var(--ui-card-alt)] border border-[var(--ui-border)] rounded-2xl p-4 w-full flex flex-col gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
                     style={{ borderRadius: "20px" }}
