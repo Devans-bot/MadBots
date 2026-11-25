@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { BOTS, type Bot } from "@/lib/bots";
+import { cleanReply } from "@/lib/formatReply";
 import { useSettings } from "@/lib/settings";
 import { ChatSkeletonList } from "./ChatSkeletonList";
 
@@ -395,7 +396,9 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                           className="w-full min-w-0 mt-1 space-y-2 text-left text-[13.5px] font-normal leading-relaxed text-[var(--ui-text)]"
                           style={{ fontFamily: "var(--font-poppins)" }}
                         >
-                          {msg.text.split(/(```[\s\S]*?```)/g).map((segment, segIdx) => {
+                          {(isUser ? msg.text : cleanReply(msg.text))
+                            .split(/(```[\s\S]*?```)/g)
+                            .map((segment, segIdx) => {
                             if (segment.startsWith("```") && segment.endsWith("```")) {
                               const lines = segment.slice(3, -3).split("\n");
                               const lang = lines[0]?.trim() || "CODE";
