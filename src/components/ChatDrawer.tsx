@@ -338,11 +338,11 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       data-testid="chat-sheet"
       className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+53px)] bottom-0 z-30 flex flex-col bg-transparent overflow-visible select-none"
     >
-      {/* Neon gradient top frame */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-t-[26px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
+      {/* Top frame with rounded corners (+15%: 26px -> 30px) */}
+      <div className="flex-1 min-h-0 flex flex-col rounded-t-[30px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
         <section
           aria-label={`Chat with ${bot.name}`}
-          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[24.5px] bg-[var(--ui-card)] madbots-graph-grid"
+          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[28px] bg-[var(--ui-card)] madbots-graph-grid"
         >
           {/* Top Draggable Handle + Sticky Bot Header */}
           <div
@@ -385,7 +385,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#28c840] border border-white dark:border-zinc-900" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-[15px] text-[var(--ui-text)] leading-tight tracking-tight truncate font-headline">
+                  <span className="font-bold text-[16.5px] text-[var(--ui-text)] leading-tight tracking-tight truncate font-headline">
                     {bot.name}
                   </span>
                   <span className="text-[11px] text-[var(--ui-muted)] truncate">
@@ -492,9 +492,9 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                         <div className="flex items-center justify-between w-full gap-2 pb-[5px]">
                           <div className="flex items-center gap-1.5 flex-wrap leading-none">
                             <span
-                              className={`font-semibold text-[14px] leading-none ${isUser
-                                ? "text-[var(--ui-text)]"
-                                : "text-[#0066ff] dark:text-[#66a3ff]"
+                              className={`leading-none ${isUser
+                                ? "font-semibold text-[14px] text-[var(--ui-text)]"
+                                : "font-headline font-bold text-[15.5px] text-[#0066ff] dark:text-[#66a3ff] tracking-tight"
                                 }`}
                             >
                               {isUser ? "You" : bot.name}

@@ -108,10 +108,10 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
       data-testid="settings-sheet"
       className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+53px)] bottom-0 z-40 flex flex-col bg-transparent overflow-visible select-none"
     >
-      <div className="flex-1 min-h-0 flex flex-col rounded-t-[26px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
+      <div className="flex-1 min-h-0 flex flex-col rounded-t-[30px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
         <section
           aria-label="Settings"
-          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[24.5px] bg-[var(--ui-sheet)]"
+          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[28px] bg-[var(--ui-sheet)]"
         >
           {/* Top Draggable Swipe Handle */}
           <div

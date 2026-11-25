@@ -443,7 +443,7 @@ export default function ChatPage() {
                           <span>{bot.initial}</span>
                         </div>
                       )}
-                      <span className="text-[11px] font-semibold text-zinc-500">{bot.name}</span>
+                      <span className="font-headline font-bold text-[13px] text-[#0066ff] dark:text-[#66a3ff] tracking-tight">{bot.name}</span>
                       {msg.responseTime && (
                         <span className="text-[10px] text-[var(--ui-muted)] font-mono flex items-center gap-0.5 leading-none select-none pl-1">
                           <span className="text-[9px] opacity-75">⚡</span>
