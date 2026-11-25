@@ -358,7 +358,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                             </span>
                             {!isUser && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9.5px] font-bold tracking-wide uppercase leading-none">
-                                BOT
+                                AGENT
                               </span>
                             )}
                             {!isUser && msg.verified && (
@@ -532,7 +532,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   e.preventDefault();
                   send();
                 }}
-                className="flex items-center gap-2 rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-2.5 py-1.5 border-[1.5px] transition-all duration-200"
+                className="flex items-center gap-2 w-full overflow-hidden rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-2.5 py-1.5 border-[1.5px] transition-all duration-200"
                 style={{
                   borderColor: isTypingActive ? botAccentColor : "rgba(212, 212, 216, 0.85)",
                   boxShadow: isTypingActive
@@ -554,7 +554,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   onChange={(e) => setText(e.target.value)}
                   disabled={loadingSkeleton}
                   placeholder={`Ask ${bot.name}...`}
-                  className="flex-1 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 disabled:opacity-50"
+                  className="flex-1 min-w-0 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 disabled:opacity-50"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 />
                 <button

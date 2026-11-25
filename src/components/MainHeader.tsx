@@ -33,11 +33,15 @@ export function MainHeader({
             if (onHomeClick) onHomeClick();
           }}
           aria-label="MaDbotS Home"
-          className="h-9 flex items-center gap-0.5 cursor-pointer whitespace-nowrap shrink-0 rounded"
+          className="h-9 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 rounded"
         >
-          <span className="font-black text-[19px] leading-none tracking-tighter text-[var(--ui-text)] font-headline">
-            MaDbotS
-            <span className="text-[#FF2B85] font-black">*</span>
+          <img
+            src="/icon-512.jpg"
+            alt=""
+            className="w-[18px] h-[18px] rounded-[5px] object-cover border border-zinc-300 dark:border-zinc-600 shrink-0"
+          />
+          <span className="font-black text-[19px] leading-none tracking-tighter text-[#22439E] dark:text-[#5b82e8] font-headline">
+            MaDbotS<span className="text-[#FF2B85] font-black">*</span>
           </span>
         </button>
 

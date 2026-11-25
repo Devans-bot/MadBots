@@ -5,7 +5,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 
 export const metadata: Metadata = {
   title: "MaDbotS",
-  description: "Your personal AI chatbots",
+  description: "Your personal AI agents",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

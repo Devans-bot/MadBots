@@ -173,21 +173,13 @@ export default function Home() {
           </svg>
         </div>
 
-        {/* Main Hero & AI Chatbots List */}
-        <main className="relative z-10 w-full pt-8 pb-16 flex flex-col px-3">
-          <div className="pb-4 text-left px-1" style={{ paddingBottom: "21px" }}>
+        {/* Main Hero & AI Agents List */}
+        <main className="relative z-10 w-full pt-6 pb-16 flex flex-col px-3">
+          <div className="pb-4 text-left px-1" style={{ paddingBottom: "16px" }}>
             <h1 className="text-[15px] font-bold tracking-tight text-[var(--ui-text)] flex items-center gap-1.5 font-headline">
-              <span className="hero-word">Talk.</span>
-              <span className="hero-word">Think.</span>
-              <span className="hero-word relative inline-block">
-                Build.
-                <svg
-                  className="hero-squiggle absolute left-0 -bottom-1 w-full h-2 text-[#FF2B85] fill-none overflow-visible stroke-current stroke-[2.5] stroke-linecap-round stroke-linejoin-round"
-                  viewBox="0 0 100 12"
-                  preserveAspectRatio="none"
-                >
-                  <path d="M2 8 C 20 2, 35 12, 50 6 C 65 1, 80 11, 98 5" />
-                </svg>
+              <span className="hero-word">Available LLM Agents</span>
+              <span className="hero-word inline-flex items-center text-[#FF2B85]">
+                <span className="material-symbols-outlined text-[18px] font-bold">arrow_downward</span>
               </span>
             </h1>
           </div>
@@ -200,21 +192,15 @@ export default function Home() {
               const badgeLabel = isMacro ? "Nutrition" : isBhima ? "Fitness" : "Coding";
               const tagIcon = isMacro ? "restaurant" : isBhima ? "fitness_center" : "code";
               const tagText = isMacro ? "Food DB" : isBhima ? "Strength" : "TypeScript";
-              const shadowStyle = isMacro
-                ? "rgba(229, 55, 45, 0.30) 0px 10px 28px -4px, rgba(255, 43, 133, 0.22) 0px 4px 14px -2px"
-                : isBhima
-                ? "rgba(245, 158, 11, 0.32) 0px 10px 28px -4px, rgba(234, 88, 12, 0.22) 0px 4px 14px -2px"
-                : "rgba(0, 102, 255, 0.30) 0px 10px 28px -4px, rgba(0, 210, 255, 0.24) 0px 4px 14px -2px";
 
               return (
                 <button
                   key={bot.id}
                   type="button"
                   onClick={() => setActiveBotId(bot.id)}
-                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border border-[var(--ui-border)] hover:border-zinc-500 p-4 rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block"
+                  className="bot-card group relative w-full text-left bg-[var(--ui-card)] border border-[var(--ui-border)] hover:border-zinc-500 px-4 py-[11px] rounded-2xl transition-all duration-150 cursor-pointer active:scale-[0.99] block shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                   style={{
                     borderRadius: "20px",
-                    boxShadow: shadowStyle,
                   }}
                 >
                   <div className="flex items-start gap-3.5">
@@ -238,7 +224,7 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-[15px] font-bold text-[var(--ui-text)] truncate font-headline">
                             {bot.name}
@@ -256,10 +242,10 @@ export default function Home() {
                             : "Ready"}
                         </span>
                       </div>
-                      <p className="font-body text-[13px] text-[var(--ui-muted)] font-normal line-clamp-2 mb-2.5">
+                      <p className="font-body text-[13px] text-[var(--ui-muted)] font-normal line-clamp-2 mb-1.5">
                         {bot.tagline}
                       </p>
-                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[var(--ui-border)] text-[var(--ui-muted)] font-medium">
+                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[var(--ui-border)] text-[var(--ui-muted)] font-medium">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 bg-[var(--ui-sheet)] text-[var(--ui-text)] px-2 py-0.5 rounded">
                             <span className="material-symbols-outlined text-[13px] text-[var(--ui-muted)]">
@@ -297,7 +283,7 @@ export default function Home() {
             }}
           >
             <span className="material-symbols-outlined text-[18px] text-[#0066ff]">add_circle</span>
-            <span className="truncate font-headline">Add Bot !</span>
+            <span className="truncate font-headline">Add Agent</span>
           </button>
         </nav>
       )}
@@ -314,7 +300,7 @@ export default function Home() {
             className="w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-2xl bg-[var(--ui-card)] border border-[var(--ui-border)] p-5 shadow-2xl space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-[var(--ui-text)] font-headline">Add New Bot</h2>
+              <h2 className="text-base font-bold text-[var(--ui-text)] font-headline">Add New Agent</h2>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
@@ -325,10 +311,10 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              {/* Bot Name */}
+              {/* Agent Name */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--ui-muted)] mb-1">
-                  Bot Name
+                  Agent Name
                 </label>
                 <input
                   type="text"
@@ -350,7 +336,7 @@ export default function Home() {
                   required
                   value={newBotDescription}
                   onChange={(e) => setNewBotDescription(e.target.value)}
-                  placeholder="Brief description of what this bot does..."
+                  placeholder="Brief description of what this agent does..."
                   className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
               </div>
@@ -368,7 +354,7 @@ export default function Home() {
                   className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
                 <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  Note: Don&apos;t use the same API key for this bot — use a separate key to isolate rate limits.
+                  Note: Don&apos;t use the same API key for this agent — use a separate key to isolate rate limits.
                 </p>
               </div>
 
@@ -472,7 +458,7 @@ export default function Home() {
               type="submit"
               className="w-full py-2.5 rounded-full bg-[#0066ff] hover:bg-[#0050cb] text-white font-bold text-sm transition-all active:scale-98 cursor-pointer"
             >
-              Create Bot
+              Create Agent
             </button>
           </form>
         </div>

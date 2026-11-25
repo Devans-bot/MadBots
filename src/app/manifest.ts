@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MaDbotS",
     short_name: "MaDbotS",
-    description: "Your personal AI chatbots — Macro-Chief, Bhima Coach & Dexter",
+    description: "Your personal AI agents — Macro-Chief, Bhima Coach & Dexter",
     start_url: "/",
     display: "standalone",
     background_color: "#141618",

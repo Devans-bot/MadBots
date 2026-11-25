@@ -40,7 +40,7 @@ export function SplashScreen() {
               ease: "power2.out",
               onComplete: () => setVisible(false),
             });
-          }, 550);
+          }, 1050);
         }
       }, 38);
     }, 280);
