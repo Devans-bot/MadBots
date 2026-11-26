@@ -13,94 +13,147 @@
 
 ## 📖 Overview
 
-**MaDbotS** is a progressive web application (PWA) built for lightning-fast, purpose-driven interactions with domain-specific AI agents. Unlike generic chatbots that suffer from hallucination, excessive verbosity, and slow response times, MaDbotS pairs each bot with a strict **"Soul" specification**, a dedicated local knowledge database, tool-calling capabilities, and sub-second inference speeds.
+**MaDbotS** is a Progressive Web Application (PWA) built for lightning-fast, purpose-driven interactions with domain-specific AI agents. Unlike generic chatbots that suffer from hallucination, excessive verbosity, and slow response times, MaDbotS pairs each bot with a strict **`soul.md` specification**, local knowledge databases, function-calling tools, and sub-second inference speeds.
 
 ### Core Philosophy
-1. **Strict Brevity & Zero Fluff:** Every bot enforces strict response constraints (e.g., direct line-1 calculations, no greetings, no generic apologies, no unsolicited advice).
-2. **Speed-First Inference:** Primary inference is offloaded to Groq's LPUs for near-instant responses, backed by Google's Gemini models for automated failover.
-3. **Tactile Mobile UX:** Designed from the ground up as a native mobile experience, featuring gesture-driven bottom sheets, spring physics, dynamic auto-resizing textareas, and Discord-style DM layouts.
+1. **Strict Brevity & Zero Fluff:** Every bot enforces strict output constraints (e.g., line-1 direct answers, no greetings, no generic sycophancy, and hard stops).
+2. **Speed-First Inference:** Primary inference runs on Groq's LPUs for near-instant responses (`~0.5s–1.2s`), backed by Google's Gemini models for automated failover.
+3. **Tactile Mobile UX:** Designed from the ground up as a native mobile experience, featuring gesture-driven bottom sheets, spring physics, dynamic auto-resizing textareas, and Discord-inspired DM layouts.
 
 ---
 
-## 🤖 The Bots
+## 🤖 The Bots (Detailed Profiles)
 
-| Bot | Persona | Core Focus | Primary Capabilities |
-| :--- | :--- | :--- | :--- |
-| **Macro-Chief** (`madrix-macros`) | Personal Nutrition Intelligence | Daily meal macro calculation & diet database | Exact calorie/protein tracking, 0g protein rules for staple carbs (rice/dal/Maggi), live row-level database updates (`update_personal_macro_db`), multi-pass `verify-macros` skill. |
-| **Bhima Coach** (`bhima-coach`) | Old-School Akhada Coach | Heavy lifting, PR progression, hypertrophy | Progressive overload logs, biomechanics form fixes, high-protein Indian diet enforcement, tough-love accountability without generic hype. |
-| **Dexter** (`madrix-codes`) | Senior Full-Stack & Systems Engineer | Architecture, debugging, systems code | Minimal production-ready code snippets, root cause debugging, strict typing, zero pleasantries or boilerplate fluff. |
+MaDbotS ships with **3 hyper-specialized built-in agents**, each isolated with its own `soul.md`, dedicated Groq/Gemini API keys, and strict domain guardrails.
+
+### 1. Macro-Chief (`madrix-macros`) — *Personal Nutrition Intelligence*
+- **Tagline:** *"Counting every gram of protein from your thali to your shaker."*
+- **Primary Engine:** `qwen/qwen3.8-27b` (Groq) → Fallbacks: `openai/gpt-oss-120b` → `openai/gpt-oss-20b` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`.
+- **Core Capabilities:**
+  - **Exact Meal Calculation:** Parses natural language, shorthand, and partial servings (e.g., *"half burger"*, *"1.5x"*, *"3/6 nuggets"*) and scales macros proportionally.
+  - **Local Database Priority:** Reads `personal_food_macros.txt` first (overrides generic estimates), followed by `burger_king_selected_macros.txt` (conditionally loaded only when BK triggers appear), and external lookup only as a last resort.
+  - **Personal Tracking Rules:** Strictly enforces personal rules such as **0 g protein** for cooked rice, cooked dal, and Maggi (counting calories only), dry/raw weights for soya chunks, and raw weights for chicken breast.
+  - **Live Database Tool Calling (`update_personal_food_db`):** Tell Macro-Chief to add or update a food item (e.g., *"Update paneer to 280 kcal and 20g protein per 100g"*), and it safely updates `personal_food_macros.txt` row-by-row while maintaining a `.bak` backup.
+  - **Deterministic Verification (`verify-macros`):** Typing `verify-macros` runs a multi-pass verification skill that reads both databases twice, extracts items to JSON, and sums calories/protein across 4 independent permutations to award a blue **Verified** badge.
+- **Output Style:** Plain text `-` bullets, line-1 breakdown start, inline notes only, hard stop after `Daily Total:`.
+
+### 2. Bhima Coach (`bhima-coach`) — *Desi Akhada & Gym Uncle Coach*
+- **Tagline:** *"Your akhada uncle for PRs, BMI, and high-protein khurak."*
+- **Primary Engine:** `openai/gpt-oss-120b` (Groq) → Fallbacks: `openai/gpt-oss-20b` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`.
+- **Persona & Vibe:** Speaks like a caring yet strict veteran *Desi Akhada Ustad / Guruji*—blending Indian-accented Hinglish (*"beta"*, *"shera"*, *"pehelwan"*, *"khurak"*, *"mehnat"*) with evidence-based sports science.
+- **Authorized Domains & Capabilities:**
+  - **Hypertrophy Training:** Optimal weekly set volume, intensity (RPE/RIR), mechanical tension, and exercise selection.
+  - **Powerlifting:** Coaching, bracing cues, and peaking for the Big Three (**Squat, Bench Press, Deadlift**).
+  - **1RM & PR Calculator:** Instant estimated 1-Rep Max calculations using Epley / Brzycki formulas.
+  - **BMI & High-Protein Indian Diet:** Actionable desi meal splits (*paneer, soya, eggs, chicken, whey*).
+- **Strict Scope Guardrail:** Refuses any non-fitness questions (e.g., coding, politics, trivia) in-character: *"Arre beta, main Bhima-Coach hoon—akhada aur gym ka ustad! Yeh sab baatein chhodo aur fitness, diet, ya workout ke sawaal poochho!"*
+- **Output Style:** Under 150 words, tight bullets, line-1 action, ends immediately after final bullet or a 5-word punchline.
+
+### 3. Dexter (`madrix-codes`) — *Senior Full-Stack & Systems Nerd*
+- **Tagline:** *"DexterCodes: Clumsy with cables, sharp with syntax. What's broken?"*
+- **Primary Engine:** `openai/gpt-oss-20b` (Groq) → Fallbacks: `qwen/qwen3.8-27b` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`.
+- **Persona & Vibe:** Brilliant, caffeinated dark-mode coder with subtle 3–5 word clumsy nerd quirks (e.g., *\*adjusts glasses\**) paired with razor-sharp technical accuracy.
+- **Authorized Domains & Capabilities:**
+  - **Supported Languages:** Idiomatic **C++ (C++17/20, STL)**, **Python**, and **JavaScript / TypeScript (ES6+, async/await, Node/DOM)**.
+  - **OOP & Architecture:** Encapsulation, Abstraction, Inheritance, Polymorphism, and clean system design.
+  - **DSA & Complexity:** Arrays, Trees, Graphs, Heaps, DP, Two Pointers, Sliding Window—always accompanied by **Time & Space Big-O Complexity** (`O(n log n)`).
+  - **Bug Fixing:** Fixed code first, followed by 1–2 concise bullets explaining the root cause.
+- **Strict Scope Guardrail:** Refuses non-coding topics in-character: *"404 Error: Topic not found in my brain! 😅 I'm Dexter—I only speak in C++, Python, JavaScript, DSA, and bugs."*
 
 ---
 
-## ✨ Features
+## ➕ Add Bot Feature (Custom Agent Builder)
 
-### 1. Mobile-First Interaction Design
-- **Gesture Bottom Sheets (`ChatDrawer` & `SettingsDrawer`):** Fluid touch-enabled drawer with pull-to-dismiss physics, drag velocity detection, and snap points.
-- **Dynamic Input Box:** Auto-expanding textarea that grows smoothly from 1 line to a maximum of 3 lines (`88px`) as you type and shrinks back down when deleting text.
-- **Discord-Inspired Message Feed:** Clean message rows with avatar grouping, distinct bot left borders, response timing metrics (`⚡ 0.85s`), verified badges, and quick copy triggers.
-- **Client-Side Star Bookmarking:** Double-tap or star any message to bookmark it. Starred messages are saved in browser `localStorage` and never inflate model context windows.
-- **Off-White Minimalist Frame:** Elegant 30px rounded top corners with a crisp, non-glow off-white frame in both light and dark modes.
+Users can create and launch their own custom AI bots directly from the homescreen using the **Add New Agent** modal (`+` button):
 
-### 2. PWA & Standalone Capability
-- Installable on iOS (Safari Add to Home Screen) and Android (Chrome PWA).
-- Custom splash screen with typing brand animation, standalone manifest, and custom app icons.
+| Field | Description | Behavior / Default |
+| :--- | :--- | :--- |
+| **Agent Name** | Display name for your bot (e.g., *"Study Buddy"*) | Required; automatically generates an initial badge |
+| **Description** | Short tagline shown on the homescreen bot card | Required; defaults to *"Custom AI assistant ready to help."* |
+| **Gemini API Key** | Dedicated API key for this custom bot | Optional (falls back to default `.env` key). Includes warning to use a separate key to isolate rate limits |
+| **Model** | Primary Gemini model ID | Defaults to `gemini-3.5-flash` |
+| **Fallback Model** | Backup model ID if primary fails or hits quota | Defaults to `gemini-3.1-flash-lite` |
+| **`soul.md` Instructions** | Multiline system prompt defining identity, tone, rules, and output formatting | Injected as `systemInstruction` on every chat turn |
+| **Visibility** | Toggle between **Public** and **Private** | Visual badge & configuration metadata |
+| **Accent Color** | 5 preset color swatches (`#0066ff`, `#ff2b85`, `#10b981`, `#f59e0b`, `#8b5cf6`) | Themes the bot's avatar badge and send button |
 
-### 3. Settings & Customization
-- Adjust model thinking meters (`minimal`, `low`, `medium`, `high`).
-- Theme toggle supporting persistent Light & Dark modes.
-- Support for custom bot configurations and custom API key injection.
+Custom bots are saved immediately to `localStorage` and open directly in the same gesture-driven `ChatDrawer` as built-in bots.
+
+---
+
+## 📱 App Usability & UX Guide
+
+MaDbotS is engineered for effortless one-handed mobile usability and desktop speed:
+
+1. **Homescreen Dashboard:**
+   - Full-width bot cards with enlarged `66px` avatars, concise taglines, and instant tap-to-open drawers (with background scroll locking so the homescreen never bounces).
+   - Quick `+` action to add custom agents and a clean header (`28px` MaDbotS logo + Settings gear).
+
+2. **Gesture-Driven Bottom Sheets (`ChatDrawer` & `SettingsDrawer`):**
+   - **Drag & Swipe Physics:** Pull down on the top drag handle bar to dismiss drawers smoothly with velocity tracking.
+   - **Refined Framing:** Features `30px` rounded top corners framed by a crisp, non-glow off-white border across both light and dark modes.
+
+3. **Dynamic Auto-Resizing Input Box:**
+   - Starts compact as a single line (`38px`) and **grows automatically** line-by-line as you type or press Enter, capped cleanly at **3 lines (`88px`)**, then shrinks back when lines are deleted.
+
+4. **Discord-Style Chat Feed & Metrics:**
+   - **Clear Visual Separation:** Bot replies feature a subtle left accent border; user messages have no left border.
+   - **Bold Typography & Timing:** Bot names render in bold **Plus Jakarta Sans** (matching the MaDbotS brand header) alongside response timing (`⚡ 0.85s`) and `AGENT` / `Verified` badges on the exact same line.
+   - **Quick Actions:** One-tap **Copy** button and **Star** bookmark button aligned at the top-right of every message.
+
+5. **Private Starred Bookmarks (`localStorage` Isolation):**
+   - Double-tap or click the ⭐ icon on any message to bookmark it.
+   - Starred messages persist locally across reloads for quick reference, **and are automatically stripped out of `/api/chat` requests** so saved notes never pollute the AI's context window or waste tokens.
+   - If saved messages exist on startup, a 1-second skeleton loader runs; otherwise, chats load instantaneously.
+
+6. **Settings & Theme Controls:**
+   - **Theme Toggle:** Persistent Light & Dark mode switching.
+   - **Thinking Depth Sliders:** Adjust reasoning depth (`minimal`, `low`, `medium`, `high`) per bot with unified blue sliders (`#0066ff`).
+
+7. **PWA Installability:**
+   - Open in Safari (iOS) or Chrome (Android/Desktop) and select **Add to Home Screen** / **Install App** for full-screen standalone usage with custom splash animation.
 
 ---
 
 ## 🔍 Innerview: How It Works
 
-### High-Level Architecture
+### High-Level Request Flow
 
 ```
-User Message (PWA Client)
+User Message (PWA Client — starred messages excluded)
        │
        ▼
-Next.js App Router API Route (`/api/chat`)
+Next.js App Router API (`/api/chat`)
        │
-       ├─► 1. Specialized Skills Check (e.g., `verify-macros` cross-verification)
+       ├─► 1. Specialized Skill Check (`verify-macros` deterministic cross-check)
        │
        ├─► 2. Stage 1: Primary Inference (Groq LPUs)
-       │       - Macro-Chief: Qwen 2.5 32B / Llama 3.3 70B Versatile
-       │       - Bhima Coach: Llama 3.3 70B Versatile
-       │       - Dexter: Llama 3.3 70B Versatile
-       │       - Auto-tool calling (e.g. `update_personal_macro_db`)
+       │       ├─ Macro-Chief : qwen/qwen3.8-27b
+       │       ├─ Bhima Coach : openai/gpt-oss-120b
+       │       └─ Dexter      : openai/gpt-oss-20b
+       │       (Includes 4-turn sliding window & conditional menu injection)
        │
-       ├─► 3. Stage 2: Automatic Retry on Rate Limit (413 / 429 TPM)
+       ├─► 3. Stage 2: Automatic Retry on Rate Limit / Transient Errors (413 / 429)
        │
        └─► 4. Stage 3: Fallback Engine (Google Gemini)
-               - Secondary: `gemini-3.5-flash-lite`
-               - Fallback: `gemini-3.1-flash-lite`
+               ├─ Secondary : gemini-3.5-flash-lite
+               └─ Fallback  : gemini-3.1-flash-lite
 ```
 
-### 1. Dual-Engine Resilience Pipeline
-To guarantee continuous availability without breaking rate limits:
-- **Groq Primary Engine:** Handles 95%+ of traffic with ultra-low latency (<1.2s roundtrip).
-- **Token Budget Guard:** Recent conversation history is sliced to the last 4 turns, and large menus (like the 280-line Burger King database) are conditionally injected only when relevant triggers are detected (`bk`, `whopper`, `burger king`).
-- **Automatic Multi-Tier Fallback:** If Groq encounters temporary rate limits (413 Payload Too Large or 429 TPM exhaustion), the request automatically falls back to Google Gemini (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`) without user disruption.
+### Rate Limits Reference (All Configured Models)
 
-### 2. Persona Engine (`soul.md`)
-Every bot has its own `soul.md` markdown document defining:
-- Personality quirks, tone constraints, and vocabulary.
-- Strict output formats (e.g., `- [Food]: [Calories] kcal, [Protein] g protein`).
-- Exclusion rules and priority data hierarchy.
+| Model | Provider | Role in App | Free Tier Limits | Paid / Dev Tier |
+| :--- | :--- | :--- | :--- | :--- |
+| **`qwen/qwen3.8-27b`** | Groq | Macro-Chief (Primary), Dexter (Fallback) | 30 RPM · 1,000 RPD · 7,000–8,000 TPM · 200k TPD | 1,000 RPM · 250k TPM |
+| **`openai/gpt-oss-120b`** | Groq | Bhima Coach (Primary), Macro-Chief (Fallback) | 30 RPM · 1,000 RPD · 8,000 TPM · 200k TPD | 1,000 RPM · 250k TPM |
+| **`openai/gpt-oss-20b`** | Groq | Dexter (Primary), Bhima & Macro (Fallback) | 30 RPM · 1,000 RPD · 8,000 TPM · 200k TPD | 1,000 RPM · 250k TPM |
+| **`gemini-3.5-flash-lite`** | Google | Secondary Fallback & `verify-macros` | 15 RPM · 500 RPD · 250,000 TPM | Pay-as-you-go |
+| **`gemini-3.1-flash-lite`** | Google | Final Fallback & `verify-macros` | 15 RPM · 500 RPD · 250,000 TPM | Pay-as-you-go |
 
-### 3. Tool Calling & Atomic Database Sync
-When Macro-Chief is instructed to update food items (e.g., *"Update paneer to 280 kcal and 20g protein"*):
-1. The model invokes the structured function `update_personal_macro_db`.
-2. The server executes row-level replacement in `personal_food_macros.txt`.
-3. An automatic backup (`personal_food_macros.txt.bak`) is verified before changes are committed to disk.
-
-### 4. Deterministic Macro Verification (`verify-macros`)
-Typing `verify-macros` activates a multi-stage skill:
-1. Re-reads both nutrition databases twice from disk to confirm cache integrity.
-2. Extracts itemized components into structured JSON.
-3. Computes calorie and protein sums across four independent permutations.
-4. Awards a blue **Verified** badge if and only if all calculation passes match deterministically.
+### Rate-Limit & Performance Engineering
+- **4-Turn Context Slicing:** Only the most recent active turns are sent to Groq, preventing rolling 60-second TPM limit exhaustion (7k–8k TPM ceiling on free tier).
+- **Conditional Menu Loading:** `burger_king_selected_macros.txt` is only injected into Macro-Chief's system prompt when Burger King keywords are detected, saving ~2,500+ tokens per standard message.
+- **Atomic File Writes:** `update_personal_food_db` performs targeted row-level replacements rather than rewriting entire files, preventing truncation from model output limits.
 
 ---
 
@@ -115,10 +168,10 @@ madbots/
 │   ├── app/
 │   │   ├── api/chat/route.ts   # Core chat dispatch & dual-engine fallback router
 │   │   ├── chat/[id]/page.tsx  # Standalone chat route
-│   │   ├── globals.css         # Tailwind v4 styles, custom frames & theme tokens
+│   │   ├── globals.css         # Tailwind v4 styles, off-white frames & theme tokens
 │   │   ├── layout.tsx          # Root layout & PWA viewport settings
 │   │   ├── manifest.ts         # Next.js web application manifest
-│   │   └── page.tsx            # Main dashboard & active bot list
+│   │   └── page.tsx            # Homescreen bot cards & Add New Agent modal
 │   ├── bots/                   # Bot souls, custom Groq handlers & tools
 │   │   ├── bhima-coach/        # Bhima Coach prompt, soul & Groq client
 │   │   ├── madrix-codes/       # Dexter prompt, soul & Groq client
@@ -136,7 +189,7 @@ madbots/
 │   └── lib/
 │       ├── bots.ts             # Bot definitions & metadata
 │       ├── gemini.ts           # Google Gemini API client & fallback logic
-│       └── skills.ts           # Verification and auxiliary bot skills
+│       └── skills.ts           # Deterministic verify-macros skill
 ├── package.json
 └── tsconfig.json
 ```
@@ -157,16 +210,20 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env.local` file in the root directory:
+Create a `.env` or `.env.local` file in the root directory:
 ```env
-# Groq API Key (Primary Fast Inference)
-GROQ_API_KEY=your_groq_api_key
+# Groq API Keys (Primary Fast Inference - separate keys isolate rate limits)
+GROQ_API_KEY_MACROS=your_groq_key
+GROQ_MODEL_MACROS=qwen/qwen3.8-27b
 
-# Google Gemini API Key (Secondary Fallback Engine)
-GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY_BHIMA=your_groq_key
+GROQ_MODEL_BHIMA=openai/gpt-oss-120b
 
-# Optional Model Overrides
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY_DEXTER=your_groq_key
+GROQ_MODEL_DEXTER=openai/gpt-oss-20b
+
+# Google Gemini API Keys (Secondary Fallback & Skills)
+GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_FALLBACK_MODEL=gemini-3.1-flash-lite
 ```
@@ -192,9 +249,9 @@ npm run start
 - **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
 - **Animation:** [GSAP 3](https://greensock.com/gsap/)
 - **Icons & Typography:** Google Material Symbols Outlined, Plus Jakarta Sans
-- **Inference Engines:** Groq SDK (LPU Inference) & Google Generative AI (Gemini)
+- **Inference Engines:** Groq API (LPU Inference) & Google Generative AI (Gemini)
 
 ---
 
 ## 📄 License
-Private & Proprietary — Developed with precision for personal productivity.
+Private & Proprietary — Built for high-speed personal productivity.
