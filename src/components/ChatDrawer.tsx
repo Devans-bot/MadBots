@@ -6,6 +6,9 @@ import { BOTS, type Bot } from "@/lib/bots";
 import { cleanReply } from "@/lib/formatReply";
 import { useSettings } from "@/lib/settings";
 import { ChatSkeletonList } from "./ChatSkeletonList";
+import { ChatMarkdown } from "./ChatMarkdown";
+import { CodeBlock } from "./CodeBlock";
+import { useVoiceChat } from "@/lib/useVoiceChat";
 
 type Msg = {
   role: "user" | "model";
@@ -14,6 +17,8 @@ type Msg = {
   verified?: boolean;
   responseTime?: string;
   starred?: boolean;
+  isError?: boolean;
+  retryPrompt?: string;
 };
 
 interface ChatDrawerProps {
@@ -43,9 +48,12 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string }>>([]);
   const [mounted, setMounted] = useState(false);
   const lastTapRef = useRef<{ [idx: number]: number }>({});
+  const usedVoiceRef = useRef(false);
+  const sendVoiceRef = useRef<(spokenText: string) => void>(() => {});
 
   useEffect(() => {
     setMounted(true);
@@ -59,41 +67,50 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     }, 5500);
   };
 
+  const { recording, isUserSpeaking, transcribing, speakingId, toggleRecording, speakText, stopSpeaking } = useVoiceChat({
+    onTranscriptUpdate: (spokenText) => {
+      usedVoiceRef.current = true;
+      setText(spokenText);
+    },
+    onAutoSend: (spokenText) => {
+      sendVoiceRef.current(spokenText);
+    },
+    onError: showToast,
+  });
+
   const toggleStar = (idx: number) => {
-    setMsgs((prev) => {
-      const target = prev[idx];
-      if (!target) return prev;
-      const willBeStarred = !target.starred;
+    const target = msgs[idx];
+    if (!target) return;
+    const willBeStarred = !target.starred;
 
-      const updated = prev.map((m, i) => {
-        if (i === idx) {
-          return { ...m, starred: willBeStarred };
-        }
-        // If starring a bot response, also star its corresponding user message
-        if (willBeStarred && target.role === "model" && i === idx - 1 && prev[i]?.role === "user") {
-          return { ...prev[i], starred: true };
-        }
-        // If starring a user prompt, also star its immediate reply if present
-        if (willBeStarred && target.role === "user" && i === idx + 1 && prev[i]?.role === "model") {
-          return { ...prev[i], starred: true };
-        }
-        return m;
-      });
-
-      // Persist ONLY starred messages in localStorage
-      try {
-        const starredOnly = updated.filter((m) => m.starred);
-        localStorage.setItem(key, JSON.stringify(starredOnly));
-      } catch { }
-
-      if (willBeStarred) {
-        showToast("⭐ Starred! Saved to your chat memory.");
-      } else {
-        showToast("☆ Unstarred message.");
+    const updated = msgs.map((m, i) => {
+      if (i === idx) {
+        return { ...m, starred: willBeStarred };
       }
-
-      return updated;
+      // If starring a bot response, also star its corresponding user message
+      if (willBeStarred && target.role === "model" && i === idx - 1 && msgs[i]?.role === "user") {
+        return { ...msgs[i], starred: true };
+      }
+      // If starring a user prompt, also star its immediate reply if present
+      if (willBeStarred && target.role === "user" && i === idx + 1 && msgs[i]?.role === "model") {
+        return { ...msgs[i], starred: true };
+      }
+      return m;
     });
+
+    setMsgs(updated);
+
+    // Persist ONLY starred messages in localStorage
+    try {
+      const starredOnly = updated.filter((m) => m.starred);
+      localStorage.setItem(key, JSON.stringify(starredOnly));
+    } catch { }
+
+    if (willBeStarred) {
+      showToast("Starred! Saved locally.");
+    } else {
+      showToast("Unstarred message.");
+    }
   };
 
   const handleDoubleTap = (idx: number) => {
@@ -239,17 +256,21 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     }
   };
 
-  const send = async (overrideText?: string) => {
+  const send = async (overrideText?: string, baseMsgs?: Msg[], forceVoice = false) => {
     const q = (overrideText ?? text).trim();
     if (!q || busy) return;
-    const next: Msg[] = [...msgs, { role: "user", text: q, t: Date.now() }];
+    const wasVoice = forceVoice || (!overrideText && usedVoiceRef.current);
+    usedVoiceRef.current = false;
+    const sourceMsgs = baseMsgs ?? msgs;
+    const next: Msg[] = [...sourceMsgs, { role: "user", text: q, t: Date.now() }];
     setMsgs(next);
     setText("");
     setBusy(true);
 
-    let reply = "Something went wrong. Try again.";
+    let reply = "Unable to reach agent. Please try again.";
     let verified = false;
     let responseTime: string | undefined;
+    let isError = false;
     try {
       // Saved/starred chats are stored only in localStorage for user viewing,
       // and NOT sent to the model for response generation.
@@ -275,48 +296,75 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       }
 
       if (!d) {
-        reply = `Server error (${r.status}). ${raw.slice(0, 120)}`.trim();
-        showToast(`⚠️ ${reply}`);
+        isError = true;
+        reply = "Connection issue. Please try again.";
+        showToast("Connection issue. Please try again.");
       } else {
         if (d.reply && String(d.reply).trim()) {
           reply = d.reply;
+          if (/servers are busy|timed out/i.test(reply)) {
+            isError = true;
+          }
         } else if (d.error) {
-          reply = `Error: ${d.error}`;
+          isError = true;
+          reply = "Unable to respond right now. Please try again.";
         } else {
+          isError = true;
           reply = "Received empty response. Please try again.";
         }
         if (d.verified) verified = true;
         if (d.responseTime) responseTime = d.responseTime;
 
-        // Surface model fallback / transition errors as test toasts
         if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
-          d.fallbackEvents.forEach((ev: any, idx: number) => {
-            setTimeout(() => {
-              showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
-            }, idx * 600);
-          });
+          showToast("Primary busy, switching to backup...");
         }
 
         if (!r.ok) {
-          const errMsg = d.error || d.reply || "Request failed";
-          reply = `Error (${r.status}): ${errMsg}`;
-          showToast(`⚠️ Server error (${r.status}): ${errMsg}`);
+          isError = true;
+          reply = "Unable to reach agent. Please try again.";
+          showToast("Service unavailable. Please retry.");
         }
       }
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "Failed to contact chat server";
-      reply = `Network error: ${errMsg}`;
-      showToast(`⚠️ ${reply}`);
+    } catch {
+      isError = true;
+      reply = "Network error. Unable to reach agent.";
+      showToast("Network error. Please try again.");
     }
 
-    const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];
+    const all: Msg[] = [
+      ...next,
+      {
+        role: "model",
+        text: reply,
+        t: Date.now(),
+        verified,
+        responseTime,
+        ...(isError ? { isError: true, retryPrompt: q } : {}),
+      },
+    ];
     setMsgs(all);
     setBusy(false);
+    if (wasVoice && !isError && reply) {
+      speakText(reply, `msg-${all.length - 1}`, bot.id);
+    }
     try {
       // Persist ONLY starred messages in localStorage
       const starredOnly = all.filter((m) => m.starred);
       localStorage.setItem(key, JSON.stringify(starredOnly));
     } catch { }
+  };
+  sendVoiceRef.current = (spokenText: string) => {
+    send(spokenText, undefined, true);
+  };
+
+  const handleRetry = (errorMsgIdx: number, prompt: string) => {
+    if (busy) return;
+    const pruned = msgs.filter((_, idx) => {
+      if (idx === errorMsgIdx) return false;
+      if (idx === errorMsgIdx - 1 && msgs[idx]?.role === "user" && msgs[idx]?.text === prompt) return false;
+      return true;
+    });
+    send(prompt, pruned);
   };
 
   const copyText = (txt: string, idx: number) => {
@@ -330,21 +378,27 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
       ? ["100g oats & 300ml milk", "2 whole eggs and 150g cooked rice", "verify-macros"]
       : bot.id === "bhima-coach"
         ? ["Desi Push/Pull/Legs split", "Calculate my 1RM (100kg x 5)", "High-protein vegetarian diet"]
-        : ["Explain Binary Search in C++", "Debug my Python loop", "OOP 4 pillars in JS"];
+        : bot.id === "madrix-rehab"
+          ? ["Shoulder pain during bench press", "Lower back tightness after deadlifts", "Knee pain on squats"]
+          : ["Explain Binary Search in C++", "Debug my Python loop", "OOP 4 pillars in JS"];
 
   const botRowBg =
     bot.id === "madrix-macros"
       ? "bg-[#ecfdf5]/85 dark:bg-emerald-500/12 border-l-[3px] border-l-emerald-500 backdrop-blur-md" // Faded green
       : bot.id === "bhima-coach"
         ? "bg-[#fff7ed]/85 dark:bg-orange-500/12 border-l-[3px] border-l-orange-500 backdrop-blur-md" // Faded orange
-        : "bg-[#ebf3ff]/85 dark:bg-blue-500/12 border-l-[3px] border-l-[#0066ff] backdrop-blur-md"; // Faded blue
+        : bot.id === "madrix-rehab"
+          ? "bg-[#ecfeff]/85 dark:bg-sky-500/12 border-l-[3px] border-l-sky-500 backdrop-blur-md" // Faded sky cyan
+          : "bg-[#ebf3ff]/85 dark:bg-blue-500/12 border-l-[3px] border-l-[#0066ff] backdrop-blur-md"; // Faded blue
 
   const botAccentColor =
     bot.id === "madrix-macros"
       ? "#10b981"
       : bot.id === "bhima-coach"
         ? "#f97316"
-        : "#0066ff";
+        : bot.id === "madrix-rehab"
+          ? "#0ea5e9"
+          : "#0066ff";
 
   const isTypingActive = text.trim().length > 0;
 
@@ -474,7 +528,6 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       key={idx}
                       data-testid={isUser ? "chat-box-user" : "chat-box-bot"}
                       onClick={() => handleDoubleTap(idx)}
-                      onDoubleClick={() => toggleStar(idx)}
                       className={`group w-full flex items-start gap-3 py-1.5 pr-2 pl-[10px] rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left cursor-pointer select-text relative ${isUser
                         ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-0"
                         : botRowBg
@@ -545,8 +598,8 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                             )}
                           </div>
 
-                          {/* Star and Copy buttons at right side with copy icon reduced by 40% */}
-                          <div className="flex items-center gap-1 shrink-0">
+                          {/* Star and Three-Dot Menu (Copy + Voice Listen) at top-right */}
+                          <div className="flex items-center gap-1 shrink-0 relative">
                             {/* Star Toggle Button */}
                             <button
                               type="button"
@@ -562,23 +615,52 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                               <span>{msg.starred ? "⭐" : "☆"}</span>
                             </button>
 
-                            {/* Top-Right Copy Button with icon size reduced by 40% (from 13px to 10px) */}
+                            {/* Three-Dot Menu Button */}
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                copyText(msg.text, idx);
+                                setOpenMenuIdx((prev) => (prev === idx ? null : idx));
                               }}
-                              aria-label="Copy message"
-                              className="opacity-60 hover:opacity-100 px-1 py-0.5 rounded text-[9.5px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-0.5 transition-all cursor-pointer shrink-0"
+                              aria-label="Message actions"
+                              className="opacity-65 hover:opacity-100 p-1 rounded-full text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer shrink-0"
                             >
-                              <span className="material-symbols-outlined text-[10px] leading-none">
-                                {copiedId === idx ? "check" : "content_copy"}
-                              </span>
-                              <span className="text-[9px] font-medium leading-none">
-                                {copiedId === idx ? "Copied" : "Copy"}
-                              </span>
+                              <span className="material-symbols-outlined text-[16px] leading-none">more_vert</span>
                             </button>
+
+                            {openMenuIdx === idx && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-6 z-40 min-w-[110px] rounded-xl bg-[var(--ui-card)] border border-[var(--ui-border)] shadow-lg p-1 flex flex-col gap-0.5"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    copyText(msg.text, idx);
+                                    setOpenMenuIdx(null);
+                                  }}
+                                  className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {copiedId === idx ? "check" : "content_copy"}
+                                  </span>
+                                  <span>{copiedId === idx ? "Copied" : "Copy"}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    speakText(msg.text, `msg-${idx}`, bot.id);
+                                    setOpenMenuIdx(null);
+                                  }}
+                                  className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
+                                >
+                                  <span className="material-symbols-outlined text-[14px] text-[#0066ff]">
+                                    {speakingId === `msg-${idx}` ? "stop_circle" : "volume_up"}
+                                  </span>
+                                  <span>{speakingId === `msg-${idx}` ? "Stop" : "Listen"}</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -594,87 +676,33 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                                 const lines = segment.slice(3, -3).split("\n");
                                 const lang = lines[0]?.trim() || "CODE";
                                 const codeBody = (lines[0]?.trim() ? lines.slice(1) : lines).join("\n").trim();
-                                return (
-                                  <div
-                                    key={segIdx}
-                                    className="bg-[#f3f4f3] dark:bg-[#12151c] border border-[var(--ui-border)] rounded-lg overflow-hidden my-1"
-                                  >
-                                    <div className="flex items-center justify-between px-3 py-1.5 bg-[#e8e8e7] dark:bg-[#191d26] border-b border-[var(--ui-border)]">
-                                      <span className="text-[10px] font-bold tracking-wider uppercase text-[var(--ui-muted)]">
-                                        {lang}
-                                      </span>
-                                    </div>
-                                    <pre className="font-mono text-[12px] leading-relaxed text-[var(--ui-text)] p-3 overflow-x-auto">
-                                      <code>{codeBody}</code>
-                                    </pre>
-                                  </div>
-                                );
+                                return <CodeBlock key={segIdx} code={codeBody} language={lang} />;
                               }
                               const trimmed = segment.trim();
                               if (!trimmed) return null;
                               return (
-                                <div key={segIdx} className="space-y-1">
-                                  {trimmed.split("\n").map((line, lineIdx) => {
-                                    const cleanLine = line.trimEnd();
-                                    if (!cleanLine.trim()) {
-                                      return <div key={lineIdx} className="h-1.5" />;
-                                    }
-
-                                    // Bullet line (- ... or • ...)
-                                    const bulletMatch = cleanLine.match(/^(\s*)[-*•]\s+(.*)$/);
-                                    if (bulletMatch) {
-                                      const indent = bulletMatch[1].length >= 2;
-                                      const body = bulletMatch[2];
-                                      const isSubtotal = /subtotal/i.test(body);
-                                      const colonIdx = body.indexOf(":");
-                                      return (
-                                        <div
-                                          key={lineIdx}
-                                          className={`flex items-start gap-2 ${indent ? "pl-4" : "pl-1.5"}`}
-                                        >
-                                          <span className="text-[var(--ui-muted)] select-none leading-relaxed">•</span>
-                                          <span className={isSubtotal ? "font-semibold" : ""}>
-                                            {colonIdx > 0 && colonIdx < 40 ? (
-                                              <>
-                                                <span className="font-medium text-[var(--ui-text)]">
-                                                  {body.slice(0, colonIdx + 1)}
-                                                </span>
-                                                <span>{body.slice(colonIdx + 1)}</span>
-                                              </>
-                                            ) : (
-                                              body
-                                            )}
-                                          </span>
-                                        </div>
-                                      );
-                                    }
-
-                                    // Section heading line (e.g. "Meal 1:" or "Daily Total:" or "Daily Total")
-                                    const isSectionHeader =
-                                      /^(Meal\s+\d+.*|Daily Total.*|Workout.*|Day\s+\d+.*|Problem Breakdown.*|Solution.*|Complexity Check.*):?$/i.test(
-                                        cleanLine.trim()
-                                      ) || /^[A-Z][A-Za-z0-9\s\-/()]{1,42}:$/.test(cleanLine.trim());
-
-                                    if (isSectionHeader) {
-                                      return (
-                                        <div
-                                          key={lineIdx}
-                                          className="font-semibold text-[13.5px] text-[var(--ui-text)] pt-1"
-                                        >
-                                          {cleanLine.trim()}
-                                        </div>
-                                      );
-                                    }
-
-                                    return (
-                                      <div key={lineIdx} className="whitespace-pre-wrap">
-                                        {cleanLine}
-                                      </div>
-                                    );
-                                  })}
+                                <div key={segIdx}>
+                                  {isUser ? (
+                                    <div className="whitespace-pre-wrap">{trimmed}</div>
+                                  ) : (
+                                    <ChatMarkdown content={trimmed} accentColor={botAccentColor} />
+                                  )}
                                 </div>
                               );
                             })}
+
+                          {!isUser && msg.isError && msg.retryPrompt && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetry(idx, msg.retryPrompt!)}
+                              disabled={busy}
+                              className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[var(--ui-muted)] hover:text-[#0066ff] hover:bg-[#0066ff]/10 transition-colors cursor-pointer disabled:opacity-40"
+                              title="Retry message"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">refresh</span>
+                              <span>Retry</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -719,6 +747,34 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                 ))}
               </div>
 
+              {/* Unified Voice Amplifier Pulse (shown ONLY when user is actively speaking or TTS is playing) */}
+              {(speakingId || isUserSpeaking) && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (speakingId) stopSpeaking();
+                      else if (recording) toggleRecording();
+                    }}
+                    aria-label={speakingId ? "Stop voice playback" : "Stop voice recording"}
+                    title={speakingId ? "Tap to stop speaking" : "Tap to stop recording"}
+                    className="w-[40%] min-w-[140px] h-9 px-4 rounded-2xl bg-[#0066ff]/12 dark:bg-[#0066ff]/20 backdrop-blur-md border border-[#38bdf8]/40 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform animate-pulse"
+                    style={{
+                      boxShadow:
+                        "0 0 18px rgba(0, 174, 255, 0.45), 0 0 6px rgba(0, 102, 255, 0.3)",
+                    }}
+                  >
+                    {[280, 140, 40, 200, 80, 0, 80, 200, 40, 140, 280].map((delay, idx) => (
+                      <span
+                        key={idx}
+                        className="w-[3px] h-4 rounded-full bg-gradient-to-t from-[#0066ff] via-[#00d4ff] to-[#38bdf8] madbots-amp-bar"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </button>
+                </div>
+              )}
+
               {/* Light Liquid-Glass Squircle Input */}
               <div
                 className="flex items-end gap-1.5 w-full overflow-hidden rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-1 py-1.5 border-[1.5px] transition-all duration-200"
@@ -755,6 +811,27 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                 />
                 <button
                   type="button"
+                  onClick={toggleRecording}
+                  disabled={busy || loadingSkeleton || transcribing}
+                  aria-label={recording ? "Stop voice recording" : "Voice input"}
+                  title={recording ? "Listening... tap to stop" : "Tap to speak"}
+                  className={`relative w-9 h-9 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer disabled:opacity-40 ${
+                    recording
+                      ? "bg-red-500 text-white shadow-sm ring-4 ring-red-500/30"
+                      : transcribing
+                      ? "bg-amber-500/20 text-amber-500 animate-pulse"
+                      : "text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                >
+                  {recording && (
+                    <span className="absolute inset-0 rounded-[14px] ring-2 ring-red-500 animate-ping opacity-75 pointer-events-none" />
+                  )}
+                  <span className="material-symbols-outlined text-[19px] relative z-10">
+                    {recording ? "stop" : transcribing ? "graphic_eq" : "mic"}
+                  </span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => send()}
                   disabled={busy || loadingSkeleton || !text.trim()}
                   aria-label="Send message"
@@ -769,16 +846,16 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
         </section>
       </div>
 
-      {/* Model Fallback Error Toast Popups rendered directly on document.body */}
+      {/* Short single-line Toast Popups rendered directly on document.body */}
       {mounted && toasts.length > 0 && typeof document !== "undefined" && createPortal(
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[99999] flex flex-col gap-2 max-w-[92vw] sm:max-w-md w-full pointer-events-none px-3">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-1.5 max-w-[88vw] pointer-events-none px-3">
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className="pointer-events-auto w-full px-4 py-2.5 rounded-xl bg-zinc-950 text-amber-300 border-2 border-amber-400 shadow-[0_10px_35px_rgba(0,0,0,0.85)] text-[12px] font-mono leading-snug flex items-start gap-2.5 backdrop-blur-xl"
+              className="pointer-events-auto px-3.5 py-1.5 rounded-full bg-zinc-900/90 dark:bg-zinc-800/95 text-white border border-white/10 shadow-md text-[11.5px] font-medium whitespace-nowrap truncate max-w-full flex items-center gap-1.5"
             >
-              <span className="text-[15px] shrink-0 mt-0.5">⚠️</span>
-              <div className="flex-1 min-w-0 break-words">{toast.message}</div>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              <span className="truncate">{toast.message}</span>
             </div>
           ))}
         </div>,

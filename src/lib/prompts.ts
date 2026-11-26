@@ -1,6 +1,7 @@
 import { getMacrosPrompt } from "@/bots/madrix-macros/prompt";
 import { getCodesPrompt } from "@/bots/madrix-codes/prompt";
 import { getBhimaPrompt } from "@/bots/bhima-coach/prompt";
+import { getRehabPrompt } from "@/bots/madrix-rehab/prompt";
 
 // Server-only: imported by the API route, never by pages, so prompts stay out of the browser bundle.
 export const PROMPTS: Record<string, string> = new Proxy(
@@ -10,6 +11,7 @@ export const PROMPTS: Record<string, string> = new Proxy(
       if (prop === "madrix-macros") return getMacrosPrompt();
       if (prop === "madrix-codes") return getCodesPrompt();
       if (prop === "bhima-coach") return getBhimaPrompt();
+      if (prop === "madrix-rehab") return getRehabPrompt();
       return "";
     },
   }

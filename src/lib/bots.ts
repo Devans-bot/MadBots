@@ -48,4 +48,13 @@ export const BOTS: Bot[] = [
     level: "medium",
     avatar: "/avatars/dexter.jpg",
   },
+  {
+    id: "madrix-rehab",
+    name: "Rehab-Rishi",
+    tagline: "Calm sports physio for injury recovery, mobility & pain-free lift swaps.",
+    initial: "R",
+    color: "#0ea5e9",
+    level: "medium",
+    avatar: "/avatars/madrix-rehab.jpg",
+  },
 ];

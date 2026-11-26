@@ -7,6 +7,7 @@ import { MACROS_TOOLS, handleMacrosToolCall } from "@/bots/madrix-macros/tools";
 import { callGroqMacroChief } from "@/bots/madrix-macros/groqMacro";
 import { callGroqBhima } from "@/bots/bhima-coach/groqBhima";
 import { callGroqDexter } from "@/bots/madrix-codes/groqDexter";
+import { callGroqRehab } from "@/bots/madrix-rehab/groqRehab";
 
 export type Msg = { role: "user" | "model"; text: string };
 export type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
@@ -59,6 +60,12 @@ const GROQ_CONFIG: Record<
     envKeyName: "GROQ_API_KEY_DEXTER",
     modelEnvName: "GROQ_MODEL_DEXTER",
     defaultModel: "openai/gpt-oss-20b",
+  },
+  "madrix-rehab": {
+    handler: callGroqRehab,
+    envKeyName: "GROQ_API_KEY_REHAB",
+    modelEnvName: "GROQ_MODEL_REHAB",
+    defaultModel: "openai/gpt-oss-120b",
   },
 };
 
