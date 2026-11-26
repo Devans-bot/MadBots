@@ -76,7 +76,8 @@ async function callGroqCompletion(
   model: string,
   apiKey: string,
   messages: GroqApiMessage[],
-  tools?: typeof GROQ_MACROS_TOOLS
+  tools?: typeof GROQ_MACROS_TOOLS,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; status: number; data?: any; error?: string }> {
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -91,6 +92,7 @@ async function callGroqCompletion(
         tools: tools && tools.length > 0 ? tools : undefined,
         temperature: 0.6,
       }),
+      signal,
     });
 
     if (res.ok) {
@@ -98,17 +100,22 @@ async function callGroqCompletion(
       return { ok: true, status: res.status, data };
     }
 
-    const errorBody = await res.text();
+    const errorBody = await res.text().catch(() => "");
+    console.error(
+      `[Groq] Upstream failure provider=groq model=${model} status=${res.status} body=${errorBody.slice(0, 200)}`
+    );
     return {
       ok: false,
       status: res.status,
-      error: `Groq error (${res.status}): ${errorBody}`,
+      error: `Groq error (${res.status}): ${errorBody.slice(0, 200)}`,
     };
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "Network error contacting Groq";
+    console.error(`[Groq] Fetch error provider=groq model=${model} status=500 body=${msg.slice(0, 200)}`);
     return {
       ok: false,
-      status: 500,
-      error: err instanceof Error ? err.message : "Network error contacting Groq",
+      status: signal?.aborted ? 408 : 500,
+      error: msg,
     };
   }
 }
@@ -121,8 +128,9 @@ async function callGroqCompletion(
 export async function callGroqMacroChief(
   messages: ChatMessage[],
   overrideApiKey?: string,
-  customModels?: string[]
-): Promise<{ ok: boolean; reply: string; responseTime: string; modelUsed?: string }> {
+  customModels?: string[],
+  signal?: AbortSignal
+): Promise<{ ok: boolean; status?: number; reply: string; responseTime: string; modelUsed?: string }> {
   const apiKey =
     overrideApiKey ||
     process.env.GROQ_API_KEY_MACROS ||
@@ -131,6 +139,7 @@ export async function callGroqMacroChief(
   if (!apiKey) {
     return {
       ok: false,
+      status: 401,
       reply: "GROQ_API_KEY_MACROS is missing in .env.",
       responseTime: "0ms",
     };
@@ -151,15 +160,24 @@ export async function callGroqMacroChief(
   ];
 
   let lastError = "All Groq model attempts failed for Macro-Chief.";
+  let lastStatus = 500;
 
   for (const model of modelsToTry) {
-    const res = await callGroqCompletion(model, apiKey, conversationMessages, GROQ_MACROS_TOOLS);
+    if (signal?.aborted) {
+      return {
+        ok: false,
+        status: 408,
+        reply: "Groq request timed out.",
+        responseTime: `${Math.round(performance.now() - start)}ms`,
+      };
+    }
+
+    const res = await callGroqCompletion(model, apiKey, conversationMessages, GROQ_MACROS_TOOLS, signal);
 
     if (!res.ok) {
       lastError = res.error || `HTTP ${res.status}`;
-      if (!RETRYABLE_STATUSES.has(res.status)) {
-        continue;
-      }
+      lastStatus = res.status;
+      if (signal?.aborted) break;
       continue;
     }
 
@@ -190,6 +208,7 @@ export async function callGroqMacroChief(
         const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
         return {
           ok: true,
+          status: 200,
           reply: `Done! ${toolResult.summary || "Database updated successfully."} Existing tracking rules and food entries are preserved.`,
           responseTime,
           modelUsed: model,
@@ -198,8 +217,9 @@ export async function callGroqMacroChief(
         const elapsed = Math.round(performance.now() - start);
         const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
         return {
-          ok: false,
-          reply: `Failed to update database: ${toolResult?.error || "Unknown error"}`,
+          ok: true,
+          status: 200,
+          reply: String(toolResult?.message || toolResult?.error || "Saving food edits isn't available on the hosted version yet."),
           responseTime,
           modelUsed: model,
         };
@@ -213,6 +233,7 @@ export async function callGroqMacroChief(
       const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
       return {
         ok: true,
+        status: 200,
         reply: cleaned,
         responseTime,
         modelUsed: model,
@@ -223,6 +244,7 @@ export async function callGroqMacroChief(
   const elapsed = Math.round(performance.now() - start);
   return {
     ok: false,
+    status: lastStatus,
     reply: `Groq Macro-Chief service error: ${lastError || "Empty response from all Groq models"}`,
     responseTime: elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`,
   };

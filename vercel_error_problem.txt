@@ -1,0 +1,170 @@
+================================================================================
+MADBOTS — VERCEL "SOMETHING WENT WRONG" PROBLEM STATEMENT & CURRENT LOGIC
+================================================================================
+
+--------------------------------------------------------------------------------
+PART 1: THE PROBLEM (QUESTION FOR DEBUGGING)
+--------------------------------------------------------------------------------
+
+Question:
+We deployed our Next.js 15 app (MaDbotS) to Vercel with a 4-stage AI model
+resilience pipeline:
+  1. Stage 1: Groq Primary Model
+  2. Stage 2: Groq Retry
+  3. Stage 3: Gemini Secondary Model (gemini-3.5-flash-lite)
+  4. Stage 4: Gemini Global Fallback (gemini-3.1-flash-lite)
+
+Even with all 4 fallback stages in place, users on the live Vercel deployment
+still hit the generic message:
+  "Something went wrong. Try again."
+
+Why is this happening on Vercel, and why isn't our error handling surfacing the
+actual root cause or recovering gracefully?
+
+Key Questions to Solve:
+1. Why does `ChatDrawer.tsx` fall back to `"Something went wrong. Try again."`
+   instead of displaying the actual error from `/api/chat` or the toast?
+2. Could Vercel's Serverless Function timeout (10s on Hobby plan) be killing
+   the request mid-fallback across 4 sequential stages, returning a non-JSON
+   504 HTML/text response that crashes `await r.json()` on the client?
+3. Why does `POST /api/chat` in `src/app/api/chat/route.ts` have no top-level
+   `try/catch` block? Any unhandled runtime exception (e.g., `fs.writeFileSync`
+   failing on Vercel's read-only `/var/task` filesystem in `tools.ts`, or
+   missing `.env` variables in Vercel) returns a Next.js 500 HTML page instead
+   of JSON, causing `r.json()` to throw `SyntaxError`.
+4. How can we redesign both backend and frontend error handling so that:
+   - The server ALWAYS returns valid JSON with exact error details & HTTP status
+   - Client checks `r.headers.get("content-type")` / reads `await r.text()` safely
+     before `JSON.parse()`
+   - Each stage has strict abort timeouts (`AbortController`) so total execution
+     never exceeds Vercel's function timeout
+   - File mutations in `tools.ts` handle read-only filesystems safely on Vercel.
+
+
+--------------------------------------------------------------------------------
+PART 2: CURRENT CODE & LOGIC WE HAVE IN THE APP
+--------------------------------------------------------------------------------
+
+1. FRONTEND REQUEST & ERROR HANDLING (src/components/ChatDrawer.tsx, lines 250-294)
+--------------------------------------------------------------------------------
+    let reply = "Something went wrong. Try again.";
+    let verified = false;
+    let responseTime: string | undefined;
+    try {
+      // Saved/starred chats are stored only in localStorage for user viewing,
+      // and NOT sent to the model for response generation.
+      const activeUnstarredHistory = next.filter((m) => !m.starred);
+      const messagesToSend =
+        activeUnstarredHistory.length > 0 ? activeUnstarredHistory.slice(-4) : [{ role: "user", text: q }];
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          botId: bot.id,
+          level: s.levels[bot.id],
+          messages: messagesToSend,
+          customConfig: bot.customConfig,
+        }),
+      });
+      const d = await r.json(); // <--- THROWS SyntaxError if Vercel returns 500/504 HTML or plain text!
+      if (d.reply && d.reply.trim()) {
+        reply = d.reply;
+      } else if (d.error) {
+        reply = `Error: ${d.error}`;
+      } else {
+        reply = "Received empty response. Please try again.";
+      }
+      if (d.verified) verified = true;
+      if (d.responseTime) responseTime = d.responseTime;
+
+      // Surface model fallback / transition errors as test toasts
+      if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
+        d.fallbackEvents.forEach((ev: any, idx: number) => {
+          setTimeout(() => {
+            showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
+          }, idx * 600);
+        });
+      }
+
+      if (!r.ok) {
+        showToast(`⚠️ Server error (${r.status}): ${d.reply || d.error || "Request failed"}`);
+      }
+    } catch (err) {
+      // If r.json() fails, `reply` remains "Something went wrong. Try again."
+      showToast(`⚠️ Network error: ${err instanceof Error ? err.message : "Failed to contact chat server"}`);
+    }
+
+
+2. BACKEND 4-STAGE PIPELINE (src/app/api/chat/route.ts)
+--------------------------------------------------------------------------------
+Note: `export async function POST(req: Request)` currently has NO outer try/catch!
+
+- Stage 0 (Skill Check for Macro-Chief):
+  Calls `runVerifyMacrosSkill(messages, creds.key, modelsToTry)` when
+  `bot.id === "madrix-macros"`.
+
+- Stage 1 (Groq Primary):
+  Calls `callGroqMacro` / `callGroqBhima` / `callGroqDexter`.
+  Models used:
+    * madrix-macros: qwen/qwen3.8-27b (fallbacks: openai/gpt-oss-120b, openai/gpt-oss-20b)
+    * bhima-coach:   openai/gpt-oss-120b (fallback: openai/gpt-oss-20b)
+    * madrix-codes:  openai/gpt-oss-20b (fallback: qwen/qwen3.8-27b)
+
+- Stage 2 (Groq Retry):
+  If Stage 1 returns `!groqRes.ok` or empty reply, logs a `fallbackEvent` and
+  retries the same Groq handler once more.
+
+- Stage 3 (Gemini Secondary):
+  If Stage 2 fails, reads `getBotCredentials(builtInBot.id)` (returns 400/demo
+  message if `!key || !model`), then calls:
+  `generateWithFallback([model], key, { systemInstruction, contents, generationConfig, tools }, 1)`
+  Default secondary model: `gemini-3.5-flash-lite`.
+
+- Stage 4 (Gemini Global Fallback):
+  If Stage 3 fails, logs a `fallbackEvent` and calls:
+  `generateWithFallback([fallbackModel, "gemini-3.1-flash-lite"], key, { ... }, 2)`
+  (Loops through 2 models x 2 retries = up to 4 sequential fetches).
+  If still `!result.ok`, returns `NextResponse.json({ reply: result.message, fallbackEvents })`.
+
+
+3. GEMINI FALLBACK LOGIC (src/lib/gemini.ts)
+--------------------------------------------------------------------------------
+export async function generateWithFallback(
+  models: string[],
+  apiKey: string,
+  payload: Record<string, unknown>,
+  maxRetries = 3
+): Promise<GeminiResult> {
+  const uniqueModels = Array.from(new Set(models.filter(Boolean)));
+  let lastStatus = 503;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (const model of uniqueModels) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+            body: JSON.stringify(payload),
+          }
+        );
+        // No AbortController / timeout set on fetch!
+        ...
+      } catch {
+        // Network error -> continues loop, waits before next retry
+      }
+    }
+  }
+}
+
+
+4. GROQ CLIENT LOGIC (src/bots/*/groq*.ts)
+--------------------------------------------------------------------------------
+- Uses `fetch("https://api.groq.com/openai/v1/chat/completions", ...)` with
+  NO `AbortController` timeout.
+- Loops through `modelsToTry` (`DEFAULT_MODELS`), retrying on `429, 500, 502, 503, 504`.
+- In `groqMacro.ts`, if the model triggers `update_personal_food_db`, it executes
+  `handleMacrosToolCall()` which calls `fs.writeFileSync(...)` on
+  `src/bots/madrix-macros/personal_food_macros.txt` (will throw EROFS on Vercel!).
+================================================================================

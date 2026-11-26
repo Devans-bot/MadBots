@@ -10,20 +10,34 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Calls Gemini generateContent with model switching and up to `maxRetries` attempts.
- * Falls back across `models` on 503 / transient errors, and returns
- * "Server bandwidth is slow for now" if all attempts fail.
+ * Falls back across `models` on 503 / transient errors, skips 429 rate-limited models on retries,
+ * and respects an optional AbortSignal.
  */
 export async function generateWithFallback(
   models: string[],
   apiKey: string,
   payload: Record<string, unknown>,
-  maxRetries = 3
+  maxRetries = 3,
+  signal?: AbortSignal
 ): Promise<GeminiResult> {
   const uniqueModels = Array.from(new Set(models.filter(Boolean)));
+  const rateLimitedModels = new Set<string>();
   let lastStatus = 503;
+  let lastMessage = "Server bandwidth is slow for now";
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (signal?.aborted) {
+      return { ok: false, status: 408, message: "Request timed out." };
+    }
+
     for (const model of uniqueModels) {
+      if (signal?.aborted) {
+        return { ok: false, status: 408, message: "Request timed out." };
+      }
+      if (rateLimitedModels.has(model)) {
+        continue;
+      }
+
       try {
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -31,6 +45,7 @@ export async function generateWithFallback(
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(payload),
+            signal,
           }
         );
 
@@ -39,20 +54,36 @@ export async function generateWithFallback(
           return { ok: true, data };
         }
 
+        const errText = await res.text().catch(() => "");
+        console.error(
+          `[Gemini] Upstream failure provider=gemini model=${model} status=${res.status} body=${errText.slice(0, 200)}`
+        );
+
         lastStatus = res.status;
+        if (res.status === 429) {
+          rateLimitedModels.add(model);
+          lastMessage = `Rate limited (${res.status}) on ${model}`;
+          continue;
+        }
+
         if (!RETRYABLE_STATUSES.has(res.status)) {
           return {
             ok: false,
             status: res.status,
-            message: `The model returned an error (${res.status}). Check your key, model ID and thinking support.`,
+            message: `The model returned an error (${res.status}). ${errText.slice(0, 120)}`.trim(),
           };
         }
-      } catch {
+      } catch (err) {
+        if (signal?.aborted) {
+          return { ok: false, status: 408, message: "Request timed out." };
+        }
+        const msg = err instanceof Error ? err.message : "Network error";
+        console.error(`[Gemini] Fetch error provider=gemini model=${model} status=503 body=${msg.slice(0, 200)}`);
         lastStatus = 503;
       }
     }
 
-    if (attempt < maxRetries) {
+    if (attempt < maxRetries && !signal?.aborted) {
       await sleep(600 * attempt);
     }
   }
@@ -60,6 +91,6 @@ export async function generateWithFallback(
   return {
     ok: false,
     status: lastStatus,
-    message: "Server bandwidth is slow for now",
+    message: lastMessage,
   };
 }

@@ -266,31 +266,47 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
           customConfig: bot.customConfig,
         }),
       });
-      const d = await r.json();
-      if (d.reply && d.reply.trim()) {
-        reply = d.reply;
-      } else if (d.error) {
-        reply = `Error: ${d.error}`;
+      const raw = await r.text();
+      let d: any = null;
+      try {
+        d = JSON.parse(raw);
+      } catch {
+        // Non-JSON response (e.g., Vercel 500/504 HTML or plain text)
+      }
+
+      if (!d) {
+        reply = `Server error (${r.status}). ${raw.slice(0, 120)}`.trim();
+        showToast(`⚠️ ${reply}`);
       } else {
-        reply = "Received empty response. Please try again.";
-      }
-      if (d.verified) verified = true;
-      if (d.responseTime) responseTime = d.responseTime;
+        if (d.reply && String(d.reply).trim()) {
+          reply = d.reply;
+        } else if (d.error) {
+          reply = `Error: ${d.error}`;
+        } else {
+          reply = "Received empty response. Please try again.";
+        }
+        if (d.verified) verified = true;
+        if (d.responseTime) responseTime = d.responseTime;
 
-      // Surface model fallback / transition errors as test toasts
-      if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
-        d.fallbackEvents.forEach((ev: any, idx: number) => {
-          setTimeout(() => {
-            showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
-          }, idx * 600);
-        });
-      }
+        // Surface model fallback / transition errors as test toasts
+        if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
+          d.fallbackEvents.forEach((ev: any, idx: number) => {
+            setTimeout(() => {
+              showToast(`⚠️ [${ev.stage}] ${ev.model}: ${ev.error} ➔ ${ev.nextAction}`);
+            }, idx * 600);
+          });
+        }
 
-      if (!r.ok) {
-        showToast(`⚠️ Server error (${r.status}): ${d.reply || d.error || "Request failed"}`);
+        if (!r.ok) {
+          const errMsg = d.error || d.reply || "Request failed";
+          reply = `Error (${r.status}): ${errMsg}`;
+          showToast(`⚠️ Server error (${r.status}): ${errMsg}`);
+        }
       }
     } catch (err) {
-      showToast(`⚠️ Network error: ${err instanceof Error ? err.message : "Failed to contact chat server"}`);
+      const errMsg = err instanceof Error ? err.message : "Failed to contact chat server";
+      reply = `Network error: ${errMsg}`;
+      showToast(`⚠️ ${reply}`);
     }
 
     const all: Msg[] = [...next, { role: "model", text: reply, t: Date.now(), verified, responseTime }];

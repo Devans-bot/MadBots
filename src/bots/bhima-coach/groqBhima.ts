@@ -21,8 +21,9 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 export async function callGroqBhima(
   messages: ChatMessage[],
   overrideApiKey?: string,
-  customModels?: string[]
-): Promise<{ ok: boolean; reply: string; responseTime: string; modelUsed?: string }> {
+  customModels?: string[],
+  signal?: AbortSignal
+): Promise<{ ok: boolean; status?: number; reply: string; responseTime: string; modelUsed?: string }> {
   const apiKey =
     overrideApiKey ||
     process.env.GROQ_API_KEY_BHIMA ||
@@ -31,6 +32,7 @@ export async function callGroqBhima(
   if (!apiKey) {
     return {
       ok: false,
+      status: 401,
       reply: "GROQ_API_KEY_BHIMA is missing in .env.",
       responseTime: "0ms",
     };
@@ -50,8 +52,18 @@ export async function callGroqBhima(
   ];
 
   let lastError = "All Groq model attempts failed for Bhima Coach.";
+  let lastStatus = 500;
 
   for (const model of modelsToTry) {
+    if (signal?.aborted) {
+      return {
+        ok: false,
+        status: 408,
+        reply: "Groq request timed out.",
+        responseTime: `${Math.round(performance.now() - start)}ms`,
+      };
+    }
+
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -64,11 +76,16 @@ export async function callGroqBhima(
           messages: conversationMessages,
           temperature: 0.7,
         }),
+        signal,
       });
 
       if (!res.ok) {
+        const errorBody = await res.text().catch(() => "");
+        console.error(
+          `[Groq] Upstream failure provider=groq model=${model} status=${res.status} body=${errorBody.slice(0, 200)}`
+        );
+        lastStatus = res.status;
         lastError = `HTTP ${res.status}`;
-        if (!RETRYABLE_STATUSES.has(res.status)) continue;
         continue;
       }
 
@@ -81,6 +98,7 @@ export async function callGroqBhima(
           const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
           return {
             ok: true,
+            status: 200,
             reply: cleaned,
             responseTime,
             modelUsed: model,
@@ -88,13 +106,18 @@ export async function callGroqBhima(
         }
       }
     } catch (err) {
-      lastError = err instanceof Error ? err.message : "Network error";
+      const msg = err instanceof Error ? err.message : "Network error";
+      console.error(`[Groq] Fetch error provider=groq model=${model} status=500 body=${msg.slice(0, 200)}`);
+      lastStatus = signal?.aborted ? 408 : 500;
+      lastError = msg;
+      if (signal?.aborted) break;
     }
   }
 
   const elapsed = Math.round(performance.now() - start);
   return {
     ok: false,
+    status: lastStatus,
     reply: `Groq Bhima service error: ${lastError}`,
     responseTime: elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`,
   };

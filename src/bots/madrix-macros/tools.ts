@@ -51,16 +51,26 @@ export function handleMacrosToolCall(
   args: Record<string, unknown> = {}
 ): Record<string, unknown> {
   if (name !== "update_personal_food_db") {
-    return { success: false, error: `Unknown tool: ${name}` };
+    return { ok: false, success: false, message: `Unknown tool: ${name}`, error: `Unknown tool: ${name}` };
   }
 
   try {
-    if (!fs.existsSync(DB_PATH)) {
-      return { success: false, error: "Database file not found" };
+    let currentContent = "";
+    try {
+      if (!fs.existsSync(DB_PATH)) {
+        return {
+          ok: false,
+          success: false,
+          message: "Database file is missing on the server.",
+          error: "Database file not found",
+        };
+      }
+      currentContent = fs.readFileSync(DB_PATH, "utf-8");
+    } catch (readErr) {
+      const msg = readErr instanceof Error ? readErr.message : "Failed to read database file";
+      console.error("[Tools] Read error on personal_food_macros.txt:", msg);
+      return { ok: false, success: false, message: `Unable to read food database: ${msg}`, error: msg };
     }
-
-    const currentContent = fs.readFileSync(DB_PATH, "utf-8");
-    fs.copyFileSync(DB_PATH, BAK_PATH);
 
     const foodName = String(args.foodName ?? "").trim();
     const basis = String(args.basis ?? "100 g").trim();
@@ -73,6 +83,32 @@ export function handleMacrosToolCall(
           ? `Added ${foodName} (${basis}: ${calories} kcal, ${protein} g protein)`
           : "Updated personal food database")
     );
+
+    const writeSafely = (contentToWrite: string): Record<string, unknown> => {
+      try {
+        try {
+          fs.copyFileSync(DB_PATH, BAK_PATH);
+        } catch {
+          // Ignore backup failure if directory is read-only; the write below will handle EROFS/EACCES
+        }
+        fs.writeFileSync(DB_PATH, contentToWrite, "utf-8");
+        return { ok: true, success: true, summary };
+      } catch (writeErr) {
+        const code = (writeErr as NodeJS.ErrnoException)?.code;
+        if (code === "EROFS" || code === "EACCES" || code === "EPERM") {
+          console.warn(`[Tools] Filesystem is read-only (${code}); skipping write on hosted deployment.`);
+          return {
+            ok: false,
+            success: false,
+            message: "Saving food edits isn't available on the hosted version yet.",
+            error: "Saving food edits isn't available on the hosted version yet.",
+          };
+        }
+        const msg = writeErr instanceof Error ? writeErr.message : "Failed to write database file";
+        console.error("[Tools] Write error on personal_food_macros.txt:", code || msg);
+        return { ok: false, success: false, message: msg, error: msg };
+      }
+    };
 
     // If structured foodName is provided, safely insert/update row without rewriting entire file
     if (foodName) {
@@ -104,8 +140,7 @@ export function handleMacrosToolCall(
         }
       }
 
-      fs.writeFileSync(DB_PATH, lines.join("\n"), "utf-8");
-      return { success: true, summary };
+      return writeSafely(lines.join("\n"));
     }
 
     // Fallback: If updatedContent was provided, ensure it contains the full database before writing
@@ -115,18 +150,22 @@ export function handleMacrosToolCall(
       updatedContent.includes("PERSONAL MACRO TABLE") &&
       updatedContent.includes("IMPORTANT TRACKING RULES")
     ) {
-      fs.writeFileSync(DB_PATH, updatedContent, "utf-8");
-      return { success: true, summary };
+      return writeSafely(updatedContent);
     }
 
     return {
+      ok: false,
       success: false,
+      message: "Invalid or truncated database update payload. Preserved existing database.",
       error: "Invalid or truncated database update payload. Preserved existing database.",
     };
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to update database file";
     return {
+      ok: false,
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update database file",
+      message: msg,
+      error: msg,
     };
   }
 }
