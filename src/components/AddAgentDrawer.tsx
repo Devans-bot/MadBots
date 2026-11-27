@@ -225,7 +225,7 @@ export function AddAgentDrawer({ onClose, onCreate }: AddAgentDrawerProps) {
                   className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] px-3 py-2 text-[16px] text-[var(--ui-text)] focus:outline-none focus:border-[#0066ff]"
                 />
                 <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  Note: Don&apos;t use the same API key for this agent — use a separate key to isolate rate limits.
+                  Session-only: your API key is kept in memory for this session only, never saved to localStorage or logged. Use a separate key to isolate rate limits.
                 </p>
               </div>
 

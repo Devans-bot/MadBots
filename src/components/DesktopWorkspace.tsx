@@ -5,6 +5,7 @@ import { LEVELS, type Bot, type Level } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { useVoiceChat } from "@/lib/useVoiceChat";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Msg = {
   role: "user" | "model";
@@ -97,9 +98,10 @@ const THINKING_STOPS: { level: Level; label: string; short: string; width: strin
 interface DesktopWorkspaceProps {
   agents: Bot[];
   onAddAgentClick: () => void;
+  onOpenMarketplace?: () => void;
 }
 
-export function DesktopWorkspace({ agents, onAddAgentClick }: DesktopWorkspaceProps) {
+export function DesktopWorkspace({ agents, onAddAgentClick, onOpenMarketplace }: DesktopWorkspaceProps) {
   const { s, setTheme, setLevel } = useSettings();
   const isDarkMode = s.theme === "dark";
 
@@ -541,6 +543,19 @@ export function DesktopWorkspace({ agents, onAddAgentClick }: DesktopWorkspacePr
                     >
                       <span className="material-symbols-outlined text-[19px]">filter_list</span>
                     </button>
+                    {onOpenMarketplace && (
+                      <button
+                        type="button"
+                        onClick={onOpenMarketplace}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDarkMode
+                          ? "bg-[#2a3040] text-zinc-200 hover:bg-[#353d52]"
+                          : "bg-[#f3f4f3] hover:bg-[#eeeeed] text-[#424656]"
+                          }`}
+                        title="Bot Marketplace"
+                      >
+                        <span className="material-symbols-outlined text-[19px]">storefront</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={onAddAgentClick}
@@ -578,6 +593,22 @@ export function DesktopWorkspace({ agents, onAddAgentClick }: DesktopWorkspacePr
 
               {/* Agent Feed List */}
               <div className="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-2 relative z-10">
+                {filteredAgents.length === 0 && (
+                  <div className="p-5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-center space-y-2.5 my-4">
+                    <p className="text-[13px] text-[#5a5959]">
+                      No bots yet. Add one from the marketplace.
+                    </p>
+                    {onOpenMarketplace && (
+                      <button
+                        type="button"
+                        onClick={onOpenMarketplace}
+                        className="px-3.5 py-2 rounded-lg bg-[#0066ff] hover:bg-[#0050cb] text-white text-[12px] font-bold cursor-pointer"
+                      >
+                        Open Marketplace
+                      </button>
+                    )}
+                  </div>
+                )}
                 {filteredAgents.map((agent) => {
                   const meta = AGENT_META[agent.id] ?? {
                     modelBadge: agent.customConfig?.model || "Gemini 3.5",
@@ -963,6 +994,39 @@ export function DesktopWorkspace({ agents, onAddAgentClick }: DesktopWorkspacePr
                       </div>
                     )}
 
+                    {/* Slash Command Hints when typing "/" */}
+                    {activeAgent.id === "madrix-macros" && text.startsWith("/") && !text.includes(" ") && (
+                      <div
+                        className={`mb-2 rounded-2xl border shadow-lg p-1.5 space-y-0.5 ${
+                          isDarkMode
+                            ? "bg-[#1c1f24]/95 border-[#2a3040]"
+                            : "bg-white/95 border-[#e2e2e2]"
+                        }`}
+                      >
+                        {[
+                          { cmd: "/Add ", label: "/Add", hint: "Add a food or meal to your table" },
+                          { cmd: "/verify-macros", label: "/verify-macros", hint: "Recheck last calculation (4 passes)" },
+                          { cmd: "/Update ", label: "/Update", hint: "Update an existing food or brand item" },
+                          { cmd: "/Search ", label: "/Search", hint: "Search web for nutrition per 100g" },
+                        ]
+                          .filter((s) => s.label.toLowerCase().startsWith(text.trim().toLowerCase()))
+                          .map((s) => (
+                            <button
+                              key={s.label}
+                              type="button"
+                              onClick={() => {
+                                setText(s.cmd);
+                                textareaRef.current?.focus();
+                              }}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left cursor-pointer transition-colors"
+                            >
+                              <span className="text-[12.5px] font-bold text-[#0066ff] shrink-0">{s.label}</span>
+                              <span className="text-[11.5px] text-[#5a5959] truncate">{s.hint}</span>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+
                     <div
                       className={`relative backdrop-blur-xl p-2 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.05)] ring-1 flex items-end gap-2 ${isDarkMode ? "bg-[#1c1f24]/95 ring-[#2a3040]" : "bg-white/95 ring-[#e2e2e2]/60"
                         }`}
@@ -1334,6 +1398,21 @@ export function DesktopWorkspace({ agents, onAddAgentClick }: DesktopWorkspacePr
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const supabase = createSupabaseBrowserClient();
+                        await supabase.auth.signOut();
+                      } finally {
+                        window.location.href = "/login";
+                      }
+                    }}
+                    className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[14px] font-medium border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/15 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">logout</span>
+                    <span>Sign Out</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleResetDefaults}

@@ -58,7 +58,7 @@ export function SplashScreen() {
     <div
       ref={splashRef}
       aria-hidden="true"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[var(--ui-bg)] px-6 select-none pointer-events-auto"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[var(--ui-bg)] madbots-graph-grid px-6 select-none pointer-events-auto"
     >
       <div
         ref={brandRef}

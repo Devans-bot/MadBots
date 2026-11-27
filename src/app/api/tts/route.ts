@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerUser } from "@/lib/supabase/server";
+import { checkAndIncrementUsage } from "@/lib/usage";
 
 export const maxDuration = 30;
 
@@ -37,13 +39,19 @@ const VOICE_MAP: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
+    const user = await getServerUser();
+    const usage = await checkAndIncrementUsage(user?.id ?? null);
+    if (!usage.allowed) {
+      return NextResponse.json({ error: usage.message }, { status: 429 });
+    }
+
     const apiKey = getGroqKey();
     if (!apiKey) {
       return NextResponse.json({ fallback: true, error: "No Groq API key" }, { status: 200 });
     }
 
     const body = await req.json().catch(() => null);
-    const rawText = String(body?.text || "").trim();
+    const rawText = String(body?.text || "").trim().slice(0, 2000);
     const botId = String(body?.botId || "");
     const voice = VOICE_MAP[botId] || String(body?.voice || "troy");
     if (!rawText) {

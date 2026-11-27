@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerUser } from "@/lib/supabase/server";
+import { checkAndIncrementUsage } from "@/lib/usage";
 
 export const maxDuration = 30;
 
@@ -13,6 +15,12 @@ function getGroqKey(): string | undefined {
 
 export async function POST(req: Request) {
   try {
+    const user = await getServerUser();
+    const usage = await checkAndIncrementUsage(user?.id ?? null);
+    if (!usage.allowed) {
+      return NextResponse.json({ error: usage.message }, { status: 429 });
+    }
+
     const apiKey = getGroqKey();
     if (!apiKey) {
       return NextResponse.json({ error: "Groq API key not configured" }, { status: 500 });
@@ -49,6 +57,6 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "STT error";
     console.error("[STT] Unhandled error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Voice transcription failed. Please try again." }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { BOTS, LEVELS, type Level } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const LEVEL_LABELS: Record<Level, string> = {
   minimal: "Low • Fast draft",
@@ -270,6 +271,22 @@ export default function SettingsPage() {
                 <span className="material-symbols-outlined text-[18px]">
                   {isSaved ? "done_all" : "save"}
                 </span>
+              </button>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const supabase = createSupabaseBrowserClient();
+                    await supabase.auth.signOut();
+                  } finally {
+                    window.location.href = "/login";
+                  }
+                }}
+                className="w-full py-3 px-6 rounded-full font-bold text-[14px] flex items-center justify-center gap-2 active:scale-98 transition-all border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/15 cursor-pointer"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+                <span>Sign Out</span>
               </button>
             </div>
           </div>

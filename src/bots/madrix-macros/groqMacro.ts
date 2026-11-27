@@ -129,7 +129,8 @@ export async function callGroqMacroChief(
   messages: ChatMessage[],
   overrideApiKey?: string,
   customModels?: string[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  isOwner = false
 ): Promise<{ ok: boolean; status?: number; reply: string; responseTime: string; modelUsed?: string }> {
   const apiKey =
     overrideApiKey ||
@@ -172,7 +173,13 @@ export async function callGroqMacroChief(
       };
     }
 
-    const res = await callGroqCompletion(model, apiKey, conversationMessages, GROQ_MACROS_TOOLS, signal);
+    const res = await callGroqCompletion(
+      model,
+      apiKey,
+      conversationMessages,
+      isOwner ? GROQ_MACROS_TOOLS : undefined,
+      signal
+    );
 
     if (!res.ok) {
       lastError = res.error || `HTTP ${res.status}`;
@@ -198,8 +205,8 @@ export async function callGroqMacroChief(
         // failed parse
       }
 
-      // Execute Macro-Chief tool locally
-      const toolResult = handleMacrosToolCall(toolCall.function.name, toolArgs);
+      // Execute Macro-Chief tool locally / Supabase
+      const toolResult = await handleMacrosToolCall(toolCall.function.name, toolArgs);
 
       // Return instant tool completion confirmation directly without sending an immediate
       // redundant 3,500-token follow-up request that triggers Groq's 7,000 ITPM rate limit

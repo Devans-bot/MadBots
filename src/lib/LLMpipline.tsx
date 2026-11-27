@@ -1,8 +1,11 @@
+import fs from "fs";
+import path from "path";
 import { BOTS, LEVELS, type CustomBotConfig } from "@/lib/bots";
 import { PROMPTS } from "@/lib/prompts";
 import { generateWithFallback } from "@/lib/gemini";
 import { cleanReply } from "@/lib/formatReply";
-import { runVerifyMacrosSkill } from "@/lib/skills";
+import { runSlashSkills } from "@/lib/skills";
+import { calculateMeals, isOwnerUser, type ParsedMealLog } from "@/lib/calculateMacros";
 import { MACROS_TOOLS, handleMacrosToolCall } from "@/bots/madrix-macros/tools";
 import { callGroqMacroChief } from "@/bots/madrix-macros/groqMacro";
 import { callGroqBhima } from "@/bots/bhima-coach/groqBhima";
@@ -69,6 +72,89 @@ const GROQ_CONFIG: Record<
   },
 };
 
+const PARSER_SOUL_PATH = path.join(process.cwd(), "src/bots/madrix-macros/macro_parser_soul.md");
+
+async function tryHybridMacrosPipeline(
+  userText: string,
+  signal: AbortSignal,
+  userId?: string | null
+): Promise<{ handled: boolean; reply?: string; computedItems?: unknown[] }> {
+  const apiKey = process.env.GROQ_API_KEY_MACROS || process.env.GROQ_API_KEY;
+  if (!apiKey || !userText.trim()) return { handled: false };
+
+  // Bypass hybrid fast-path for detailed explanations, DB updates, or multi-turn session edits
+  if (
+    /\b(detail|detailed|explain|describe|breakdown|why|add|update|save|change|edit|remove|delete|db|database)\b/i.test(
+      userText
+    )
+  ) {
+    return { handled: false };
+  }
+
+  let parserSoul = "";
+  try {
+    if (fs.existsSync(PARSER_SOUL_PATH)) {
+      parserSoul = fs.readFileSync(PARSER_SOUL_PATH, "utf-8");
+    }
+  } catch {
+    return { handled: false };
+  }
+  if (!parserSoul) return { handled: false };
+
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        temperature: 0,
+        include_reasoning: false,
+        reasoning_effort: "low",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: parserSoul },
+          { role: "user", content: userText },
+        ],
+      }),
+      signal,
+    });
+
+    if (!res.ok) {
+      return { handled: false };
+    }
+
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const rawJson = data?.choices?.[0]?.message?.content;
+    if (!rawJson) return { handled: false };
+
+    const parsed = JSON.parse(rawJson) as ParsedMealLog;
+    if (parsed.isNonMeal || !Array.isArray(parsed.meals) || parsed.meals.length === 0) {
+      return { handled: false };
+    }
+
+    const { markdown, unmatched, items } = await calculateMeals(parsed, userId);
+    if (unmatched.length === 0) {
+      return { handled: true, reply: markdown, computedItems: items };
+    }
+
+    // Automatic routing rule for regular users: do not fall back to a guess
+    if (userId && !isOwnerUser(userId)) {
+      const missingMsg = unmatched
+        .map((u) => `${u.name} is not in your table. Use /Add to enter it, or /Search to look it up.`)
+        .join("\n");
+      return { handled: true, reply: missingMsg };
+    }
+
+    // Owner keeps fallback to full Macro-Chief LLM if any food item is not in local .txt DBs
+    return { handled: false };
+  } catch {
+    return { handled: false };
+  }
+}
+
 function getCallSignal(globalSignal: AbortSignal): AbortSignal {
   return AbortSignal.any([globalSignal, AbortSignal.timeout(12_000)]);
 }
@@ -133,10 +219,12 @@ export async function runLLMPipeline(params: {
   messages: unknown;
   level: unknown;
   customConfig?: CustomBotConfig;
+  userId?: string | null;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
   const apiStartTime = performance.now();
   const globalSignal = AbortSignal.timeout(50_000);
-  const { botId, messages, level, customConfig } = params;
+  const { botId, messages, level, customConfig, userId } = params;
+  const owner = isOwnerUser(userId);
   const builtInBot = BOTS.find((b) => b.id === botId);
   if ((!builtInBot && !customConfig) || !Array.isArray(messages) || messages.length === 0) {
     return { status: 400, body: { error: "bad request" } };
@@ -166,14 +254,20 @@ export async function runLLMPipeline(params: {
           customConfig?.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite",
       };
 
-  // Stage 0: Specialized Skill Check (Macro-Chief's verify-macros)
-  if (bot.id === "madrix-macros" && creds.key) {
+  // Stage 0: Slash Skills (/Add, /verify-macros, /Update, /Search) routed before LLM
+  if (bot.id === "madrix-macros") {
     if (globalSignal.aborted) return deadlineExceeded();
     try {
       const modelsToTry = Array.from(
         new Set([creds.model, creds.fallbackModel, "gemini-3.1-flash-lite"].filter(Boolean))
       );
-      const skillResult = await runVerifyMacrosSkill(messages as Msg[], creds.key, modelsToTry);
+      const skillResult = await runSlashSkills({
+        messages: messages as Msg[],
+        userId,
+        geminiKey: creds.key,
+        geminiModels: modelsToTry,
+        signal: getCallSignal(globalSignal),
+      });
       if (skillResult.handled) {
         const elapsed = Math.round(performance.now() - apiStartTime);
         const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
@@ -182,6 +276,7 @@ export async function runLLMPipeline(params: {
           body: {
             reply: skillResult.reply,
             verified: Boolean(skillResult.verified),
+            placeholderHint: skillResult.placeholderHint,
             responseTime,
             modelUsed: creds.model,
             fallbackEvents: [],
@@ -189,7 +284,28 @@ export async function runLLMPipeline(params: {
         };
       }
     } catch (skillErr) {
-      console.error("[Pipeline] verify-macros skill failed, falling through to normal flow:", skillErr);
+      console.error("[Pipeline] slash skill failed, falling through to normal flow:", skillErr);
+    }
+  }
+
+  // Stage 0.5: Hybrid Fast-Path for Macro-Chief (gpt-oss-20b JSON parser + TypeScript deterministic math)
+  if (bot.id === "madrix-macros") {
+    if (globalSignal.aborted) return deadlineExceeded();
+    const lastUserText = [...(messages as Msg[])].reverse().find((m) => m.role === "user")?.text ?? "";
+    const hybrid = await tryHybridMacrosPipeline(lastUserText, getCallSignal(globalSignal), userId);
+    if (hybrid.handled && hybrid.reply) {
+      const elapsed = Math.round(performance.now() - apiStartTime);
+      const responseTime = elapsed >= 1000 ? `${(elapsed / 1000).toFixed(2)}s` : `${elapsed}ms`;
+      return {
+        status: 200,
+        body: {
+          reply: hybrid.reply,
+          computedItems: hybrid.computedItems,
+          responseTime,
+          modelUsed: "openai/gpt-oss-20b+ts",
+          fallbackEvents: [],
+        },
+      };
     }
   }
 
@@ -199,7 +315,11 @@ export async function runLLMPipeline(params: {
     if (globalSignal.aborted) return deadlineExceeded();
 
     const groqModelName = process.env[groqCfg.modelEnvName] || groqCfg.defaultModel;
-    let groqRes = await safeGroq(groqCfg.handler, messages as Msg[], getCallSignal(globalSignal));
+    const groqHandler: GroqHandlerFn =
+      bot.id === "madrix-macros"
+        ? (msgs, key, models, sig) => callGroqMacroChief(msgs, key, models, sig, owner)
+        : groqCfg.handler;
+    let groqRes = await safeGroq(groqHandler, messages as Msg[], getCallSignal(globalSignal));
 
     if (groqRes.ok && groqRes.reply?.trim()) {
       return {
@@ -234,7 +354,7 @@ export async function runLLMPipeline(params: {
       if (!globalSignal.aborted) {
         await new Promise((r) => setTimeout(r, 400));
         if (!globalSignal.aborted) {
-          groqRes = await safeGroq(groqCfg.handler, messages as Msg[], getCallSignal(globalSignal));
+          groqRes = await safeGroq(groqHandler, messages as Msg[], getCallSignal(globalSignal));
           if (groqRes.ok && groqRes.reply?.trim()) {
             return {
               status: 200,
@@ -286,7 +406,7 @@ export async function runLLMPipeline(params: {
   const supportsThinking = /gemini-2\.5|gemini-3/i.test(model);
   let generationConfig: Record<string, unknown> | undefined =
     lv && supportsThinking ? { thinkingConfig: { thinkingLevel: lv } } : undefined;
-  const tools = bot.id === "madrix-macros" ? MACROS_TOOLS : undefined;
+  const tools = bot.id === "madrix-macros" && owner ? MACROS_TOOLS : undefined;
 
   // Stage 3: Gemini Secondary
   let result = await generateWithFallback(
@@ -377,7 +497,7 @@ export async function runLLMPipeline(params: {
 
     let toolResult: Record<string, unknown>;
     try {
-      toolResult = handleMacrosToolCall(fnCallPart.functionCall.name, fnCallPart.functionCall.args);
+      toolResult = await handleMacrosToolCall(fnCallPart.functionCall.name, fnCallPart.functionCall.args);
     } catch (toolErr) {
       const msg = toolErr instanceof Error ? toolErr.message : "Tool execution failed";
       console.error("[Pipeline] handleMacrosToolCall threw exception:", msg);

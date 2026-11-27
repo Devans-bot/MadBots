@@ -18,13 +18,13 @@ export function ChatMarkdown({
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-[16px] font-bold text-[var(--ui-text)] pt-1">{children}</h1>
+            <h1 className="text-[16px] font-bold text-[var(--ui-text)] pt-1" style={{ fontFamily: "var(--font-rubik)" }}>{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-[15px] font-bold text-[var(--ui-text)] pt-1">{children}</h2>
+            <h2 className="text-[15px] font-bold text-[var(--ui-text)] pt-1" style={{ fontFamily: "var(--font-rubik)" }}>{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-[14.5px] font-bold text-[var(--ui-text)] pt-0.5">{children}</h3>
+            <h3 className="text-[14.5px] font-bold text-[var(--ui-text)] pt-0.5" style={{ fontFamily: "var(--font-rubik)" }}>{children}</h3>
           ),
           p: ({ children }) => <p className="leading-snug">{children}</p>,
           ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
@@ -37,19 +37,19 @@ export function ChatMarkdown({
             >
               <table
                 className="w-full border-collapse text-left text-[12px] bg-transparent"
-                style={{ fontFamily: "var(--font-poppins)" }}
+                style={{ fontFamily: "var(--font-nunito)" }}
               >
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-black/5 dark:bg-white/5 font-semibold">{children}</thead>
+            <thead className="bg-black/5 dark:bg-white/5 font-semibold" style={{ fontFamily: "var(--font-rubik)" }}>{children}</thead>
           ),
           th: ({ children }) => (
             <th
               className="border-b px-3 py-2 font-semibold whitespace-nowrap"
-              style={{ borderColor: `${accentColor}66` }}
+              style={{ borderColor: `${accentColor}66`, fontFamily: "var(--font-rubik)" }}
             >
               {children}
             </th>
@@ -63,10 +63,10 @@ export function ChatMarkdown({
             </td>
           ),
           strong: ({ children }) => (
-            <strong className="font-bold italic text-black dark:text-zinc-100">{children}</strong>
+            <strong className="font-bold italic text-black dark:text-zinc-100" style={{ fontFamily: "var(--font-rubik)" }}>{children}</strong>
           ),
           em: ({ children }) => (
-            <em className="font-bold italic text-black dark:text-zinc-100">{children}</em>
+            <em className="font-bold italic text-black dark:text-zinc-100" style={{ fontFamily: "var(--font-rubik)" }}>{children}</em>
           ),
           code: ({ className, children }) => {
             const isBlock = Boolean(className);

@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import { clearMacroDbCache } from "@/lib/calculateMacros";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 const DB_PATH = path.join(process.cwd(), "src/bots/madrix-macros/personal_food_macros.txt");
 const BAK_PATH = path.join(process.cwd(), "src/bots/madrix-macros/personal_food_macros.txt.bak");
@@ -46,32 +48,15 @@ export const MACROS_TOOLS = [
   },
 ];
 
-export function handleMacrosToolCall(
+export async function handleMacrosToolCall(
   name: string,
   args: Record<string, unknown> = {}
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   if (name !== "update_personal_food_db") {
     return { ok: false, success: false, message: `Unknown tool: ${name}`, error: `Unknown tool: ${name}` };
   }
 
   try {
-    let currentContent = "";
-    try {
-      if (!fs.existsSync(DB_PATH)) {
-        return {
-          ok: false,
-          success: false,
-          message: "Database file is missing on the server.",
-          error: "Database file not found",
-        };
-      }
-      currentContent = fs.readFileSync(DB_PATH, "utf-8");
-    } catch (readErr) {
-      const msg = readErr instanceof Error ? readErr.message : "Failed to read database file";
-      console.error("[Tools] Read error on personal_food_macros.txt:", msg);
-      return { ok: false, success: false, message: `Unable to read food database: ${msg}`, error: msg };
-    }
-
     const foodName = String(args.foodName ?? "").trim();
     const basis = String(args.basis ?? "100 g").trim();
     const calories = Number(args.calories) || 0;
@@ -84,17 +69,80 @@ export function handleMacrosToolCall(
           : "Updated personal food database")
     );
 
+    // 1. Primary Cloud Save: Upsert into Supabase food_macros (works on Vercel + local)
+    let savedToSupabase = false;
+    const supabase = getSupabaseAdmin();
+    if (supabase && foodName) {
+      const basisLower = basis.toLowerCase();
+      let dbBasis = "100g";
+      let servingSize = 100;
+      if (basisLower.includes("ml")) {
+        dbBasis = "100ml";
+        const m = basisLower.match(/[\d.]+/);
+        servingSize = m ? parseFloat(m[0]) : 100;
+      } else if (
+        basisLower.includes("egg") ||
+        basisLower.includes("pkt") ||
+        basisLower.includes("pack") ||
+        basisLower.includes("count") ||
+        basisLower.includes("serving") ||
+        basisLower === "1"
+      ) {
+        dbBasis = "count";
+        servingSize = 1;
+      } else {
+        const m = basisLower.match(/[\d.]+/);
+        servingSize = m ? parseFloat(m[0]) : 100;
+      }
+
+      const { error } = await supabase.from("food_macros").upsert(
+        {
+          name: foodName,
+          name_key: foodName.toLowerCase(),
+          basis: dbBasis,
+          serving_size: servingSize,
+          kcal: calories,
+          protein,
+          source: "Personal DB",
+          notes,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "name_key" }
+      );
+
+      if (!error) {
+        savedToSupabase = true;
+        clearMacroDbCache();
+      } else {
+        console.error("[Tools] Supabase upsert error:", error.message);
+      }
+    }
+
+    // 2. Local File Sync (best-effort; skipped gracefully on read-only Vercel filesystem)
+    let currentContent = "";
+    try {
+      if (fs.existsSync(DB_PATH)) {
+        currentContent = fs.readFileSync(DB_PATH, "utf-8");
+      }
+    } catch {
+      // ignore local read failure if Supabase already saved
+    }
+
     const writeSafely = (contentToWrite: string): Record<string, unknown> => {
       try {
         try {
           fs.copyFileSync(DB_PATH, BAK_PATH);
         } catch {
-          // Ignore backup failure if directory is read-only; the write below will handle EROFS/EACCES
+          // Ignore backup failure
         }
         fs.writeFileSync(DB_PATH, contentToWrite, "utf-8");
+        clearMacroDbCache();
         return { ok: true, success: true, summary };
       } catch (writeErr) {
         const code = (writeErr as NodeJS.ErrnoException)?.code;
+        if (savedToSupabase) {
+          return { ok: true, success: true, summary };
+        }
         if (code === "EROFS" || code === "EACCES" || code === "EPERM") {
           console.warn(`[Tools] Filesystem is read-only (${code}); skipping write on hosted deployment.`);
           return {
@@ -110,8 +158,13 @@ export function handleMacrosToolCall(
       }
     };
 
-    // If structured foodName is provided, safely insert/update row without rewriting entire file
     if (foodName) {
+      if (!currentContent) {
+        return savedToSupabase
+          ? { ok: true, success: true, summary }
+          : { ok: false, success: false, message: "Database file not found", error: "Database file not found" };
+      }
+
       const lines = currentContent.split("\n");
       const nameRegex = new RegExp(`^${foodName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
 
@@ -131,7 +184,6 @@ export function handleMacrosToolCall(
       }
 
       if (!replaced) {
-        // Insert right before 'ADDITIONAL SERVING REFERENCES' or at the end of PERSONAL MACRO TABLE
         const insertIdx = lines.findIndex((l) => l.includes("ADDITIONAL SERVING REFERENCES"));
         if (insertIdx !== -1) {
           lines.splice(insertIdx - 1, 0, newRow);
@@ -143,7 +195,6 @@ export function handleMacrosToolCall(
       return writeSafely(lines.join("\n"));
     }
 
-    // Fallback: If updatedContent was provided, ensure it contains the full database before writing
     const updatedContent = String(args.updatedContent ?? "");
     if (
       updatedContent.length > 500 &&

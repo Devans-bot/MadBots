@@ -9,6 +9,7 @@ import { ChatSkeletonList } from "./ChatSkeletonList";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CodeBlock } from "./CodeBlock";
 import { useVoiceChat } from "@/lib/useVoiceChat";
+import { MacroChiefV2Controls } from "./MacroChiefV2Overlay";
 
 type Msg = {
   role: "user" | "model";
@@ -19,6 +20,8 @@ type Msg = {
   starred?: boolean;
   isError?: boolean;
   retryPrompt?: string;
+  computedItems?: unknown[];
+  loggedToToday?: boolean;
 };
 
 interface ChatDrawerProps {
@@ -49,6 +52,8 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
   const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [placeholderHint, setPlaceholderHint] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string }>>([]);
   const [mounted, setMounted] = useState(false);
   const lastTapRef = useRef<{ [idx: number]: number }>({});
@@ -195,12 +200,12 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     };
   }, []);
 
-  // Safely scroll internal viewport to latest message without bouncing window or home screen
+  // Only auto-scroll when the user sends a message (do NOT auto-scroll when an agent replies)
   useEffect(() => {
-    if (!loadingSkeleton && msgs.length > 0) {
+    if (!loadingSkeleton && msgs.length > 0 && msgs[msgs.length - 1]?.role === "user") {
       scrollToBottom(true);
     }
-  }, [msgs.length, busy, loadingSkeleton]);
+  }, [msgs.length, loadingSkeleton]);
 
   const animateClose = () => {
     if (isClosingRef.current) return;
@@ -271,6 +276,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     let verified = false;
     let responseTime: string | undefined;
     let isError = false;
+    let computedItems: unknown[] | undefined;
     try {
       // Saved/starred chats are stored only in localStorage for user viewing,
       // and NOT sent to the model for response generation.
@@ -314,6 +320,14 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
         }
         if (d.verified) verified = true;
         if (d.responseTime) responseTime = d.responseTime;
+        if (Array.isArray(d.computedItems) && d.computedItems.length > 0) {
+          computedItems = d.computedItems;
+        }
+        if (typeof d.placeholderHint === "string" && d.placeholderHint) {
+          setPlaceholderHint(d.placeholderHint);
+        } else {
+          setPlaceholderHint(null);
+        }
 
         if (Array.isArray(d.fallbackEvents) && d.fallbackEvents.length > 0) {
           showToast("Primary busy, switching to backup...");
@@ -339,6 +353,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
         t: Date.now(),
         verified,
         responseTime,
+        ...(computedItems ? { computedItems } : {}),
         ...(isError ? { isError: true, retryPrompt: q } : {}),
       },
     ];
@@ -384,12 +399,12 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
 
   const botRowBg =
     bot.id === "madrix-macros"
-      ? "bg-[#ecfdf5]/85 dark:bg-emerald-500/12 border-l-[3px] border-l-emerald-500 backdrop-blur-md" // Faded green
+      ? "bg-white dark:bg-[#1c1f24] border-r-[3px] border-r-emerald-500 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
       : bot.id === "bhima-coach"
-        ? "bg-[#fff7ed]/85 dark:bg-orange-500/12 border-l-[3px] border-l-orange-500 backdrop-blur-md" // Faded orange
+        ? "bg-white dark:bg-[#1c1f24] border-r-[3px] border-r-orange-500 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
         : bot.id === "madrix-rehab"
-          ? "bg-[#ecfeff]/85 dark:bg-sky-500/12 border-l-[3px] border-l-sky-500 backdrop-blur-md" // Faded sky cyan
-          : "bg-[#ebf3ff]/85 dark:bg-blue-500/12 border-l-[3px] border-l-[#0066ff] backdrop-blur-md"; // Faded blue
+          ? "bg-white dark:bg-[#1c1f24] border-r-[3px] border-r-sky-500 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+          : "bg-white dark:bg-[#1c1f24] border-r-[3px] border-r-[#0066ff] shadow-[0_2px_12px_rgba(0,0,0,0.03)]";
 
   const botAccentColor =
     bot.id === "madrix-macros"
@@ -406,21 +421,21 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
     <div
       ref={drawerRef}
       data-testid="chat-sheet"
-      className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+53px)] bottom-0 z-30 flex flex-col bg-transparent overflow-visible select-none"
+      className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+45px)] bottom-0 z-30 flex flex-col bg-transparent overflow-visible select-none"
     >
-      {/* Top frame with rounded corners (+15%: 26px -> 30px) */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-t-[30px] pt-[2px] px-[1.5px] pb-0 madbots-chat-neon-frame max-w-3xl w-full mx-auto">
+      {/* Top frame */}
+      <div className="flex-1 min-h-0 flex flex-col rounded-t-[22px] pt-0 px-0 pb-0 max-w-3xl w-full mx-auto border-t-[3px] border-zinc-200 dark:border-zinc-700/80">
         <section
           aria-label={`Chat with ${bot.name}`}
-          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[28px] bg-[var(--ui-card)] madbots-graph-grid"
+          className="flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-t-[19px] bg-white dark:bg-[#1a1b1e] madbots-graph-grid"
         >
-          {/* Top Draggable Handle + Sticky Bot Header */}
+          {/* Top Draggable Swipe Handle */}
           <div
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="shrink-0 z-30 pt-1 pb-2.5 touch-none cursor-grab active:cursor-grabbing"
+            className="shrink-0 z-30 pt-0 pb-0.5 touch-none cursor-grab active:cursor-grabbing"
           >
             {/* Centered Horizontal Swipe Bar */}
             <div className="flex justify-center">
@@ -428,56 +443,26 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                 type="button"
                 data-testid="ios-swipe-bar"
                 aria-label="Swipe down or click to close chat"
-                className="group w-36 h-6 flex items-center justify-center rounded-full focus:outline-none"
+                className="group w-36 h-3.5 flex items-center justify-center rounded-full focus:outline-none"
               >
-                <span className="w-14 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 group-hover:bg-zinc-400 dark:group-hover:bg-zinc-400 transition-colors" />
+                <span className="w-12 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600 group-hover:bg-zinc-400 dark:group-hover:bg-zinc-400 transition-colors" />
               </button>
-            </div>
-
-            {/* Bot Info Header */}
-            <div className="w-[95%] mx-auto flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-[var(--ui-card)]/95 backdrop-blur-md border border-[var(--ui-border)] shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="relative shrink-0">
-                  {bot.avatar ? (
-                    <img
-                      src={bot.avatar}
-                      alt={bot.name}
-                      className="w-9 h-9 rounded-xl object-cover shadow-sm border border-zinc-300 dark:border-zinc-600"
-                    />
-                  ) : (
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm"
-                      style={{ background: bot.color }}
-                    >
-                      {bot.initial}
-                    </div>
-                  )}
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#28c840] border border-white dark:border-zinc-900" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-[16.5px] text-[var(--ui-text)] leading-tight tracking-tight truncate font-headline">
-                    {bot.name}
-                  </span>
-                  <span className="text-[11px] text-[var(--ui-muted)] truncate">
-                    {loadingSkeleton ? "Syncing thread..." : bot.tagline}
-                  </span>
-                </div>
-              </div>
-              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60 shrink-0">
-                Active
-              </span>
             </div>
           </div>
 
-          {/* Scrollable Message Viewport (Discord DM Layout, 4px right/side gap) */}
+          {bot.id === "madrix-macros" && (
+            <MacroChiefV2Controls onSendMessage={(txt) => setText(txt)} />
+          )}
+
+          {/* Scrollable Message Viewport (Discord DM Layout, thin scrollbar) */}
           <div
             ref={viewportRef}
-            className="flex-1 min-h-0 w-full pt-2 pb-36 overflow-y-auto select-text pl-1 pr-[4px]"
+            className="flex-1 min-h-0 w-full pt-1 pb-[64px] overflow-y-auto madbots-thin-scrollbar select-text pl-[1px] pr-[4px]"
           >
             {loadingSkeleton ? (
               <ChatSkeletonList botId={bot.id} />
             ) : (
-              <div className="flex flex-col items-start gap-[4px] w-full pb-6">
+              <div className="flex flex-col items-start gap-[4px] w-full pb-1">
                 {msgs.length === 0 && (
                   <div className="w-full flex flex-col items-start px-3 py-6 text-left">
                     <div className="mb-3">
@@ -506,16 +491,6 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   </div>
                 )}
 
-                {msgs.length > 0 && (
-                  <div className="w-full flex items-center gap-2 px-1 my-1.5">
-                    <div className="flex-1 h-px bg-[var(--ui-border)]" />
-                    <span className="text-[10.5px] font-semibold text-[var(--ui-muted)] shrink-0">
-                      Today
-                    </span>
-                    <div className="flex-1 h-px bg-[var(--ui-border)]" />
-                  </div>
-                )}
-
                 {msgs.map((msg, idx) => {
                   const timeStr = new Date(msg.t).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -528,11 +503,23 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       key={idx}
                       data-testid={isUser ? "chat-box-user" : "chat-box-bot"}
                       onClick={() => handleDoubleTap(idx)}
-                      className={`group w-full flex items-start gap-3 py-1.5 pr-2 pl-[10px] rounded-r-lg rounded-l-[3px] backdrop-blur-md transition-colors text-left cursor-pointer select-text relative ${isUser
-                        ? "bg-[#f2f3f5]/85 dark:bg-zinc-500/15 border-l-0"
-                        : botRowBg
+                      className={`group w-full flex flex-col gap-1 py-2 pr-2 pl-[1px] transition-colors text-left cursor-pointer select-text relative ${isUser
+                        ? "bg-transparent"
+                        : `${botRowBg} rounded-l-lg`
                         }`}
                     >
+                      {/* Discord-style Reply Context above Bot Response */}
+                      {!isUser && idx > 0 && msgs[idx - 1]?.role === "user" && (
+                        <div className="flex items-center gap-1.5 pl-4 text-[11.5px] text-[var(--ui-muted)] leading-none mb-0.5">
+                          <span className="w-4 h-2.5 border-l-2 border-t-2 border-zinc-400/50 dark:border-zinc-500/50 rounded-tl-[4px] shrink-0 translate-y-0.5" />
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#5865F2] text-white flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-[9px] leading-none">person</span>
+                          </span>
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-300 shrink-0">@You</span>
+                          <span className="truncate opacity-80">{msgs[idx - 1].text}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3 w-full">
                       {/* Left Circular Avatar */}
                       <div className="shrink-0 pt-0.5">
                         {isUser ? (
@@ -570,7 +557,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                             </span>
                             {!isUser && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9px] font-bold tracking-wide uppercase leading-none">
-                                AGENT
+                                APP
                               </span>
                             )}
                             {!isUser && msg.verified && (
@@ -664,12 +651,14 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                           </div>
                         </div>
 
-                        {/* Message Text (Poppins Regular) */}
+                        {/* Message Text (Josefin Sans bubble for User, Nunito + Rubik bold for Bot) */}
                         <div
-                          className="w-full min-w-0 mt-1 space-y-2 text-left text-[13.5px] font-normal leading-relaxed text-[var(--ui-text)]"
-                          style={{ fontFamily: "var(--font-poppins)" }}
+                          className={`w-full min-w-0 space-y-2 text-left text-[14px] font-normal text-[var(--ui-text)] ${
+                            isUser ? "mt-0.5 leading-[1.45]" : "mt-1 leading-relaxed"
+                          }`}
+                          style={{ fontFamily: isUser ? "var(--font-josefin)" : "var(--font-nunito)" }}
                         >
-                          {(isUser ? msg.text : cleanReply(msg.text))
+                          {(isUser ? msg.text.replace(/\n{2,}/g, "\n") : cleanReply(msg.text))
                             .split(/(```[\s\S]*?```)/g)
                             .map((segment, segIdx) => {
                               if (segment.startsWith("```") && segment.endsWith("```")) {
@@ -683,13 +672,42 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                               return (
                                 <div key={segIdx}>
                                   {isUser ? (
-                                    <div className="whitespace-pre-wrap">{trimmed}</div>
+                                    <div className="inline-block max-w-full whitespace-pre-wrap px-3 py-2 rounded-2xl rounded-tl-[4px] bg-[#f2f3f5] dark:bg-[#2b2d31] border border-zinc-200/80 dark:border-white/10 shadow-xs">
+                                      {trimmed}
+                                    </div>
                                   ) : (
                                     <ChatMarkdown content={trimmed} accentColor={botAccentColor} />
                                   )}
                                 </div>
                               );
                             })}
+
+                          {!isUser && msg.computedItems && msg.computedItems.length > 0 && (
+                            <button
+                              type="button"
+                              disabled={msg.loggedToToday}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const r = await fetch("/api/macros/log", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ items: msg.computedItems }),
+                                });
+                                if (r.ok) {
+                                  setMsgs((prev) =>
+                                    prev.map((m, i) => (i === idx ? { ...m, loggedToToday: true } : m))
+                                  );
+                                  showToast("Logged to today's meals!");
+                                }
+                              }}
+                              className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer disabled:opacity-60"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">
+                                {msg.loggedToToday ? "check_circle" : "add_task"}
+                              </span>
+                              <span>{msg.loggedToToday ? "Logged today" : "Log to today's meals"}</span>
+                            </button>
+                          )}
 
                           {!isUser && msg.isError && msg.retryPrompt && (
                             <button
@@ -704,6 +722,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                             </button>
                           )}
                         </div>
+                      </div>
                       </div>
                     </article>
                   );
@@ -729,23 +748,9 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
             )}
           </div>
 
-          {/* Docked Bottom Light Liquid-Glass Interaction Unit */}
-          <div className="absolute bottom-0 left-0 right-0 z-30 w-full px-3 pt-4 pb-safe bg-gradient-to-t from-white/95 via-white/85 to-transparent dark:from-[#161922]/95 dark:via-[#161922]/85 pointer-events-none">
+          {/* Docked Bottom Liquid-Glass Interaction Unit */}
+          <div className="absolute bottom-0 left-0 right-0 z-30 w-full px-1 pt-1 pb-1 bg-gradient-to-t from-white/90 via-white/45 to-transparent dark:from-[#1a1b1e]/90 dark:via-[#1a1b1e]/45 pointer-events-none">
             <div className="mx-auto max-w-xl flex flex-col gap-2 pointer-events-auto">
-              {/* Light Glass Suggestion Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar select-none">
-                {sampleChips.map((chip, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    disabled={loadingSkeleton || busy}
-                    onClick={() => send(chip)}
-                    className="px-3 py-1 rounded-[14px] bg-white/75 dark:bg-[#1e2330]/80 backdrop-blur-md hover:bg-white dark:hover:bg-[#252b3b] disabled:opacity-40 text-[var(--ui-text)] text-[11.5px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] whitespace-nowrap transition-all active:scale-95 shrink-0 cursor-pointer"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
 
               {/* Unified Voice Amplifier Pulse (shown ONLY when user is actively speaking or TTS is playing) */}
               {(speakingId || isUserSpeaking) && (
@@ -775,29 +780,126 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                 </div>
               )}
 
-              {/* Light Liquid-Glass Squircle Input */}
+              {/* Slash Command Hints when typing "/" */}
+              {bot.id === "madrix-macros" && text.startsWith("/") && !text.includes(" ") && (
+                <div className="mb-1 rounded-2xl bg-white/95 dark:bg-[#1e2028]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.12)] p-1.5 space-y-0.5">
+                  {[
+                    { cmd: "/Add ", label: "/Add", hint: "Add a food or meal to your table" },
+                    { cmd: "/verify-macros", label: "/verify-macros", hint: "Recheck last calculation (4 passes)" },
+                    { cmd: "/Update ", label: "/Update", hint: "Update an existing food or brand item" },
+                    { cmd: "/Search ", label: "/Search", hint: "Search web for nutrition per 100g" },
+                  ]
+                    .filter((s) => s.label.toLowerCase().startsWith(text.trim().toLowerCase()))
+                    .map((s) => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => {
+                          setText(s.cmd);
+                          textareaRef.current?.focus();
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-left cursor-pointer transition-colors"
+                      >
+                        <span className="text-[12.5px] font-bold text-[#0066ff] shrink-0">{s.label}</span>
+                        <span className="text-[11px] text-[var(--ui-muted)] truncate">{s.hint}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+
+              {/* Skills Popup */}
+              {skillsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setSkillsOpen(false)}
+                  />
+                  <div className="relative z-50 mb-1 w-64 rounded-2xl bg-white/90 dark:bg-[#1e2028]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-white/15 shadow-[0_12px_36px_rgba(0,0,0,0.16)] p-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 mb-1 border-b border-zinc-200/70 dark:border-white/10">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ui-muted)] flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px] text-amber-500">bolt</span>
+                        Skills
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSkillsOpen(false)}
+                        className="text-[var(--ui-muted)] hover:text-[var(--ui-text)] p-0.5 rounded-full cursor-pointer"
+                        aria-label="Close skills"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">close</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy || loadingSkeleton}
+                      onClick={() => {
+                        setSkillsOpen(false);
+                        const currentDraft = text.trim();
+                        const lastUserMsg = [...msgs].reverse().find((m) => m.role === "user")?.text;
+                        if (currentDraft) {
+                          setText("");
+                          send(
+                            `Verify macros for this meal log (run 4 independent calculation passes, double-check against the database, and add "Verified ✓"):\n${currentDraft}`
+                          );
+                        } else if (lastUserMsg) {
+                          send(
+                            `Verify macros for my last meal log (run 4 independent calculation passes, double-check every item and total against the database, and add "Verified ✓"):\n${lastUserMsg}`
+                          );
+                        } else {
+                          send(
+                            `Verify macros: run 4 independent calculation passes for every macro total and add "Verified ✓" once they all match.`
+                          );
+                        }
+                      }}
+                      className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/10 text-left transition-colors cursor-pointer disabled:opacity-40"
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-[17px]">verified</span>
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-semibold text-[var(--ui-text)] leading-tight">
+                          Verify Macros
+                        </div>
+                        <div className="text-[10.5px] text-[var(--ui-muted)] leading-snug mt-0.5">
+                          4-pass verification &amp; DB cross-check
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Liquid-Glass Multi-line Input Capsule */}
               <div
-                className="flex items-end gap-1.5 w-full overflow-hidden rounded-[20px] bg-white/80 dark:bg-[#1e2330]/85 backdrop-blur-xl px-1 py-1.5 border-[1.5px] transition-all duration-200"
+                className="flex items-end gap-1 w-full overflow-hidden rounded-[24px] bg-white/70 dark:bg-[#1e2028]/70 backdrop-blur-md pl-[2px] pr-1 pb-1 pt-1 border border-zinc-300 dark:border-zinc-600/80 transition-all duration-200"
                 style={{
-                  borderColor: isTypingActive ? botAccentColor : "rgba(212, 212, 216, 0.85)",
+                  borderColor: isTypingActive ? `${botAccentColor}99` : undefined,
                   boxShadow: isTypingActive
-                    ? `0 8px 28px -4px ${botAccentColor}35, inset 0 1px 1px rgba(255,255,255,0.9)`
-                    : "0 8px 24px -4px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.9)",
+                    ? `0 10px 32px -4px ${botAccentColor}35, 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.85)`
+                    : "0 10px 32px -4px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.85)",
                 }}
               >
                 <button
                   type="button"
-                  aria-label="Close drawer"
-                  onClick={animateClose}
-                  className="w-8 h-8 mb-0.5 rounded-[14px] text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer"
+                  aria-label="Open skills"
+                  title="Skills"
+                  onClick={() => setSkillsOpen((prev) => !prev)}
+                  className={`w-8 h-8 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer ${
+                    skillsOpen
+                      ? "bg-amber-500/15 text-amber-500"
+                      : "text-[var(--ui-muted)] hover:text-amber-500 hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+                  <span className="material-symbols-outlined text-[20px]">bolt</span>
                 </button>
                 <textarea
                   ref={textareaRef}
                   rows={1}
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    if (placeholderHint) setPlaceholderHint(null);
+                  }}
                   onKeyDown={(e) => {
                     // Prevent form submission on Enter / return key. Enter adds a newline instead.
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -805,7 +907,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                     }
                   }}
                   disabled={loadingSkeleton}
-                  placeholder={`Ask ${bot.name}...`}
+                  placeholder={placeholderHint || `Message @${bot.name}`}
                   className="flex-1 min-w-0 bg-transparent border-0 text-[16px] font-normal text-[var(--ui-text)] placeholder-[var(--ui-muted)] focus:outline-none focus:ring-0 px-1 py-1.5 resize-none min-h-[38px] max-h-[88px] disabled:opacity-50 transition-[height] duration-75 overflow-y-auto leading-[24px]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 />

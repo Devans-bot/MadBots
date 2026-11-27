@@ -7,23 +7,55 @@ import { ChatDrawer } from "@/components/ChatDrawer";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { DesktopWorkspace } from "@/components/DesktopWorkspace";
 import { AddAgentDrawer } from "@/components/AddAgentDrawer";
+import { BotProfileView } from "@/components/BotProfileView";
+import { MarketplaceDrawer } from "@/components/MarketplaceDrawer";
 
 type Last = { text: string; t: number };
 
 export default function Home() {
   const [last, setLast] = useState<Record<string, Last>>({});
+  const [userBotIds, setUserBotIds] = useState<string[]>([]);
+  const [botsLoaded, setBotsLoaded] = useState(false);
   const [customBots, setCustomBots] = useState<Bot[]>([]);
   const [activeBotId, setActiveBotId] = useState<string | null>(null);
+  const [showBotProfile, setShowBotProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
 
-  const allBots = [...BOTS, ...customBots];
+  const allBots = [...BOTS.filter((b) => userBotIds.includes(b.id)), ...customBots];
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/bots")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && Array.isArray(d?.botIds)) {
+          setUserBotIds(d.botIds);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setBotsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("madbots:custom-bots") || "[]");
-      if (Array.isArray(saved)) setCustomBots(saved);
+      if (Array.isArray(saved)) {
+        // Never restore API keys from localStorage; session-only in memory
+        setCustomBots(
+          saved.map((b: Bot) => ({
+            ...b,
+            customConfig: b.customConfig ? { ...b.customConfig, apiKey: "" } : undefined,
+          }))
+        );
+      }
     } catch {}
   }, []);
 
@@ -39,11 +71,42 @@ export default function Home() {
   }, [activeBotId, customBots.length]);
 
   const handleCreateAgent = (created: Bot) => {
+    // Keep apiKey in React state (session memory only); strip apiKey before persisting to localStorage
     const next = [...customBots, created];
     setCustomBots(next);
     try {
-      localStorage.setItem("madbots:custom-bots", JSON.stringify(next));
+      const sanitized = next.map((b) => ({
+        ...b,
+        customConfig: b.customConfig ? { ...b.customConfig, apiKey: "" } : undefined,
+      }));
+      localStorage.setItem("madbots:custom-bots", JSON.stringify(sanitized));
     } catch {}
+  };
+
+  const handleAddBot = async (botId: string) => {
+    const res = await fetch("/api/bots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ botId }),
+    });
+    if (res.ok) {
+      setUserBotIds((prev) => (prev.includes(botId) ? prev : [...prev, botId]));
+    }
+  };
+
+  const handleRemoveBot = async (botId: string) => {
+    const res = await fetch("/api/bots", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ botId }),
+    });
+    if (res.ok) {
+      setUserBotIds((prev) => prev.filter((id) => id !== botId));
+      if (activeBotId === botId) {
+        setActiveBotId(null);
+        setShowBotProfile(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -88,21 +151,28 @@ export default function Home() {
         <DesktopWorkspace
           agents={allBots}
           onAddAgentClick={() => setShowAddModal(true)}
+          onOpenMarketplace={() => setShowMarketplace(true)}
         />
       </div>
 
       {/* MOBILE MODE UI (Preserved untouched) */}
-      <div className="md:hidden h-dvh w-full flex flex-col relative overflow-hidden">
+      <div className="md:hidden h-dvh w-full flex flex-col relative overflow-hidden madbots-graph-grid">
         {/* Persistent Global MaDbotS Header (never disappears; pushes up 5px when drawer opens) */}
         <MainHeader
           isChatOpen={Boolean(activeBotId) || showSettings || showAddModal}
+          activeBot={activeBotId ? allBots.find((b) => b.id === activeBotId) ?? null : null}
           onHomeClick={() => {
             setActiveBotId(null);
+            setShowBotProfile(false);
             setShowSettings(false);
             setShowAddModal(false);
           }}
+          onBotInfoClick={() => {
+            if (activeBotId) setShowBotProfile(true);
+          }}
           onSettingsClick={() => {
             setActiveBotId(null);
+            setShowBotProfile(false);
             setShowAddModal(false);
             setShowSettings(true);
           }}
@@ -168,6 +238,20 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col pb-24 w-full" style={{ gap: "8px" }}>
+            {botsLoaded && allBots.length === 0 && (
+              <div className="w-full rounded-2xl bg-[var(--ui-card)] border border-[var(--ui-border)] p-6 text-center space-y-3">
+                <p className="text-[14px] font-medium text-[var(--ui-muted)]">
+                  No bots yet. Add one from the marketplace.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowMarketplace(true)}
+                  className="px-4 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0050cb] text-white text-[13px] font-bold shadow-xs cursor-pointer"
+                >
+                  Open Marketplace
+                </button>
+              </div>
+            )}
             {allBots.map((bot) => {
               const lastMsg = last[bot.id];
               const isMacro = bot.id === "madrix-macros";
@@ -228,16 +312,27 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Floating Bottom-Center Navbar (40% width, rounded corners, light black shadow) */}
+      {/* Floating Bottom-Center Navbar */}
       {!activeBotId && !showSettings && !showAddModal && (
         <nav
           aria-label="Bottom action bar"
-          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 w-[40%] min-w-[165px]"
+          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2"
         >
           <button
             type="button"
+            onClick={() => setShowMarketplace(true)}
+            className="py-3 px-4 rounded-full bg-[#0066ff] hover:bg-[#0050cb] text-white font-bold text-[13.5px] flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer whitespace-nowrap"
+            style={{
+              boxShadow: "0 8px 24px rgba(0, 102, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.08)",
+            }}
+          >
+            <span className="material-symbols-outlined text-[18px]">storefront</span>
+            <span className="font-headline">Marketplace</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowAddModal(true)}
-            className="w-full py-3 px-4 rounded-full bg-[var(--ui-card)] border border-[var(--ui-border)] text-[var(--ui-text)] font-bold text-[13.5px] flex items-center justify-center gap-2 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="py-3 px-4 rounded-full bg-[var(--ui-card)] border border-[var(--ui-border)] text-[var(--ui-text)] font-bold text-[13.5px] flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer whitespace-nowrap"
             style={{
               boxShadow: "0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08)",
             }}
@@ -253,9 +348,24 @@ export default function Home() {
         <ChatDrawer
           key={activeBotId}
           botId={activeBotId}
-          onClose={() => setActiveBotId(null)}
+          onClose={() => {
+            setShowBotProfile(false);
+            setActiveBotId(null);
+          }}
         />
       )}
+
+      {/* Bot Profile Page when clicking bot info area on top of chat screen */}
+      {showBotProfile && activeBotId && (() => {
+        const currentBot = allBots.find((b) => b.id === activeBotId);
+        if (!currentBot) return null;
+        return (
+          <BotProfileView
+            bot={currentBot}
+            onBack={() => setShowBotProfile(false)}
+          />
+        );
+      })()}
 
       {/* Settings Drawer sliding up over bottom 10px of MainHeader (Mobile only) */}
       {showSettings && (
@@ -263,11 +373,21 @@ export default function Home() {
       )}
       </div>
 
-      {/* Slide-Up Add Agent Drawer (Replaces centered popup modal) */}
+      {/* Slide-Up Add Agent Drawer */}
       {showAddModal && (
         <AddAgentDrawer
           onClose={() => setShowAddModal(false)}
           onCreate={handleCreateAgent}
+        />
+      )}
+
+      {/* Marketplace Modal */}
+      {showMarketplace && (
+        <MarketplaceDrawer
+          addedBotIds={userBotIds}
+          onClose={() => setShowMarketplace(false)}
+          onAddBot={handleAddBot}
+          onRemoveBot={handleRemoveBot}
         />
       )}
     </div>
