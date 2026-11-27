@@ -118,9 +118,16 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#0066ff] hover:bg-[#0050cb] disabled:opacity-50 text-white font-bold text-[14px] shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+            className="w-full py-3 rounded-xl bg-[#0066ff] hover:bg-[#0050cb] disabled:opacity-50 text-white font-bold text-[14px] shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? (
+              <span className="inline-flex items-center gap-2 animate-pulse">
+                <span className="material-symbols-outlined text-[17px] animate-spin">progress_activity</span>
+                <span>Signing in...</span>
+              </span>
+            ) : (
+              "Sign In"
+            )}
           </button>
         </form>
 

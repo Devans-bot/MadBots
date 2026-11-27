@@ -131,13 +131,19 @@ async function tryHybridMacrosPipeline(
     if (!rawJson) return { handled: false };
 
     const parsed = JSON.parse(rawJson) as ParsedMealLog;
-    if (parsed.isNonMeal || !Array.isArray(parsed.meals) || parsed.meals.length === 0) {
+    const totalParsedItems = Array.isArray(parsed.meals)
+      ? parsed.meals.reduce((acc, m) => acc + (Array.isArray(m.items) ? m.items.length : 0), 0)
+      : 0;
+    if (parsed.isNonMeal || !Array.isArray(parsed.meals) || totalParsedItems === 0) {
       return { handled: false };
     }
 
     const { markdown, unmatched, items } = await calculateMeals(parsed, userId);
-    if (unmatched.length === 0) {
+    if (unmatched.length === 0 && items.length > 0) {
       return { handled: true, reply: markdown, computedItems: items };
+    }
+    if (unmatched.length === 0 && items.length === 0) {
+      return { handled: false };
     }
 
     // Automatic routing rule for regular users: do not fall back to a guess

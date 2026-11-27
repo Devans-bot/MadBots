@@ -109,7 +109,16 @@ export function MarketplaceDrawer({
                       : "bg-[#0066ff] text-white hover:bg-[#0050cb] shadow-xs"
                   }`}
                 >
-                  {busy ? "..." : isAdded ? "Remove" : "Add"}
+                  {busy ? (
+                    <span className="inline-flex items-center gap-1.5 animate-pulse">
+                      <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                      <span>{isAdded ? "Removing..." : "Adding..."}</span>
+                    </span>
+                  ) : isAdded ? (
+                    "Remove"
+                  ) : (
+                    "Add"
+                  )}
                 </button>
               </div>
             );

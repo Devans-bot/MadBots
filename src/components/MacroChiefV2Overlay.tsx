@@ -34,7 +34,10 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
   const [gender, setGender] = useState<"male" | "female">("male");
   const [activity, setActivity] = useState("moderate");
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [choosingMode, setChoosingMode] = useState<"custom" | "default" | null>(null);
   const [calculatingBmi, setCalculatingBmi] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [parsingPlan, setParsingPlan] = useState(false);
   const [bmiInfo, setBmiInfo] = useState<{ bmi: number; category: string; tdee: number } | null>(null);
 
   const [dietType, setDietType] = useState("veg");
@@ -85,16 +88,21 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
   }, []);
 
   const chooseMode = async (mode: "custom" | "default") => {
-    await fetch("/api/macros/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
-    });
-    setProfile((prev) => ({ ...(prev || {}), mode }));
-    if (mode === "custom") {
-      setFlowStep("custom_choice");
-    } else {
-      setFlowStep("none");
+    setChoosingMode(mode);
+    try {
+      await fetch("/api/macros/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      setProfile((prev) => ({ ...(prev || {}), mode }));
+      if (mode === "custom") {
+        setFlowStep("custom_choice");
+      } else {
+        setFlowStep("none");
+      }
+    } finally {
+      setChoosingMode(null);
     }
   };
 
@@ -172,59 +180,69 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
 
   const handleSaveGeneratedPlan = async () => {
     if (!generatedPlan) return;
-    const res = await fetch("/api/macros/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "save",
-        name: "Custom Diet Plan",
-        target_kcal: generatedPlan.targetKcal,
-        items: generatedPlan.items,
-      }),
-    });
-    if (res.ok) {
-      setHasActivePlan(true);
-      setFlowStep("none");
-      setGeneratedPlan(null);
+    setSavingPlan(true);
+    try {
+      const res = await fetch("/api/macros/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          name: "Custom Diet Plan",
+          target_kcal: generatedPlan.targetKcal,
+          items: generatedPlan.items,
+        }),
+      });
+      if (res.ok) {
+        setHasActivePlan(true);
+        setFlowStep("none");
+        setGeneratedPlan(null);
+      }
+    } finally {
+      setSavingPlan(false);
     }
   };
 
   const handleParseExistingPlan = async (skipBrandCheck = false) => {
     setPasteMessage(null);
     setBrandPrompts([]);
-    const res = await fetch("/api/macros/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "parse_existing", text: pastedPlan, skipBrandCheck }),
-    });
-    const d = await res.json().catch(() => null);
-    if (!res.ok) {
-      setPasteMessage(d?.error || "Could not parse plan.");
-      return;
-    }
-    if (d.needsBrandSelection) {
-      setBrandPrompts(d.brandPrompts || []);
-      return;
-    }
-    if (d.missingItems?.length > 0) {
-      setPasteMessage(d.message);
-      return;
-    }
-    // Auto-save parsed plan
-    const saveRes = await fetch("/api/macros/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "save",
-        name: "My Existing Plan",
-        target_kcal: d.totalKcal,
-        items: d.items,
-      }),
-    });
-    if (saveRes.ok) {
-      setHasActivePlan(true);
-      setFlowStep("none");
-      setPastedPlan("");
+    setParsingPlan(true);
+    try {
+      const res = await fetch("/api/macros/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "parse_existing", text: pastedPlan, skipBrandCheck }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) {
+        setPasteMessage(d?.error || "Could not parse plan.");
+        return;
+      }
+      if (d.needsBrandSelection) {
+        setBrandPrompts(d.brandPrompts || []);
+        return;
+      }
+      if (d.missingItems?.length > 0) {
+        setPasteMessage(d.message);
+        return;
+      }
+      // Auto-save parsed plan
+      const saveRes = await fetch("/api/macros/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          name: "My Existing Plan",
+          target_kcal: d.totalKcal,
+          items: d.items,
+        }),
+      });
+      if (saveRes.ok) {
+        setHasActivePlan(true);
+        setFlowStep("none");
+        setPastedPlan("");
+      }
+    } finally {
+      setParsingPlan(false);
     }
   };
 
@@ -278,8 +296,8 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
 
       {/* Onboarding / Quiz / Plan Modal */}
       {flowStep !== "none" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-[22px] bg-[var(--ui-card)] border border-[var(--ui-border)] shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-5">
+          <div className="w-full max-w-lg sm:max-w-xl max-h-[90dvh] overflow-y-auto rounded-[24px] bg-[var(--ui-card)] border border-[var(--ui-border)] shadow-2xl p-6 sm:p-7 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-[16px] font-bold text-[var(--ui-text)] font-headline">
                 Macro-Chief v2 Setup
@@ -298,21 +316,41 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 <p className="text-[13px] text-[var(--ui-muted)]">Choose how you want to use Macro-Chief:</p>
                 <button
                   type="button"
+                  disabled={choosingMode !== null}
                   onClick={() => chooseMode("custom")}
-                  className="w-full p-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] hover:border-[#0066ff] text-left transition-all cursor-pointer"
+                  className="w-full p-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] hover:border-[#0066ff] text-left transition-all cursor-pointer disabled:opacity-60"
                 >
-                  <div className="font-bold text-[14px] text-[var(--ui-text)]">Custom mode</div>
-                  <div className="text-[12px] text-[var(--ui-muted)] mt-0.5">
+                  <div className="font-bold text-[14.5px] text-[var(--ui-text)] flex items-center gap-2">
+                    {choosingMode === "custom" ? (
+                      <span className="inline-flex items-center gap-1.5 animate-pulse text-[#0066ff]">
+                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                        <span>Setting Custom mode...</span>
+                      </span>
+                    ) : (
+                      "Custom mode"
+                    )}
+                  </div>
+                  <div className="text-[12.5px] text-[var(--ui-muted)] mt-0.5">
                     Use my current plan, or get a free new plan.
                   </div>
                 </button>
                 <button
                   type="button"
+                  disabled={choosingMode !== null}
                   onClick={() => chooseMode("default")}
-                  className="w-full p-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] hover:border-emerald-500 text-left transition-all cursor-pointer"
+                  className="w-full p-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] hover:border-emerald-500 text-left transition-all cursor-pointer disabled:opacity-60"
                 >
-                  <div className="font-bold text-[14px] text-[var(--ui-text)]">Default mode</div>
-                  <div className="text-[12px] text-[var(--ui-muted)] mt-0.5">
+                  <div className="font-bold text-[14.5px] text-[var(--ui-text)] flex items-center gap-2">
+                    {choosingMode === "default" ? (
+                      <span className="inline-flex items-center gap-1.5 animate-pulse text-emerald-600">
+                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                        <span>Setting Default mode...</span>
+                      </span>
+                    ) : (
+                      "Default mode"
+                    )}
+                  </div>
+                  <div className="text-[12.5px] text-[var(--ui-muted)] mt-0.5">
                     Log my meals each day.
                   </div>
                 </button>
@@ -413,9 +451,16 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 <button
                   type="submit"
                   disabled={calculatingBmi}
-                  className="w-full py-2.5 rounded-xl bg-[#0066ff] text-white font-bold text-[13px] disabled:opacity-60 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#0066ff] text-white font-bold text-[13.5px] disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {calculatingBmi ? "Calculating BMI..." : "Calculate BMI & Maintenance"}
+                  {calculatingBmi ? (
+                    <span className="inline-flex items-center gap-2 animate-pulse">
+                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                      <span>Calculating BMI...</span>
+                    </span>
+                  ) : (
+                    "Calculate BMI & Maintenance"
+                  )}
                 </button>
               </form>
             )}
@@ -476,9 +521,16 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 <button
                   type="submit"
                   disabled={generating}
-                  className="w-full py-2.5 rounded-xl bg-[#0066ff] text-white font-bold text-[13px] disabled:opacity-60 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#0066ff] text-white font-bold text-[13.5px] disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {generating ? "Creating your diet plan..." : "Generate Diet Plan"}
+                  {generating ? (
+                    <span className="inline-flex items-center gap-2 animate-pulse">
+                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                      <span>Creating your diet plan...</span>
+                    </span>
+                  ) : (
+                    "Generate Diet Plan"
+                  )}
                 </button>
               </form>
             )}
@@ -491,15 +543,24 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={savingPlan}
                     onClick={handleSaveGeneratedPlan}
-                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-[13px] cursor-pointer"
+                    className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[13.5px] cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                   >
-                    Save
+                    {savingPlan ? (
+                      <span className="inline-flex items-center gap-1.5 animate-pulse">
+                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                        <span>Saving...</span>
+                      </span>
+                    ) : (
+                      "Save"
+                    )}
                   </button>
                   <button
                     type="button"
+                    disabled={savingPlan}
                     onClick={() => setFlowStep("diet_notes")}
-                    className="flex-1 py-2.5 rounded-xl border border-[var(--ui-border)] text-[var(--ui-text)] font-bold text-[13px] cursor-pointer"
+                    className="flex-1 py-3 rounded-xl border border-[var(--ui-border)] text-[var(--ui-text)] font-bold text-[13.5px] cursor-pointer"
                   >
                     Change
                   </button>
@@ -565,10 +626,18 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 )}
                 <button
                   type="button"
+                  disabled={parsingPlan}
                   onClick={() => handleParseExistingPlan(false)}
-                  className="w-full py-2.5 rounded-xl bg-[#0066ff] text-white font-bold text-[13px] cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#0066ff] text-white font-bold text-[13.5px] cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  Parse &amp; Save Plan
+                  {parsingPlan ? (
+                    <span className="inline-flex items-center gap-2 animate-pulse">
+                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                      <span>Parsing &amp; saving plan...</span>
+                    </span>
+                  ) : (
+                    "Parse & Save Plan"
+                  )}
                 </button>
               </div>
             )}

@@ -814,7 +814,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                     className="fixed inset-0 z-40"
                     onClick={() => setSkillsOpen(false)}
                   />
-                  <div className="relative z-50 mb-1 w-64 rounded-2xl bg-white/90 dark:bg-[#1e2028]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-white/15 shadow-[0_12px_36px_rgba(0,0,0,0.16)] p-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="relative z-50 mb-1 w-72 rounded-2xl bg-white/95 dark:bg-[#1e2028]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-white/15 shadow-[0_12px_36px_rgba(0,0,0,0.16)] p-2 animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1">
                     <div className="flex items-center justify-between px-2 py-1 mb-1 border-b border-zinc-200/70 dark:border-white/10">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ui-muted)] flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px] text-amber-500">bolt</span>
@@ -834,22 +834,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       disabled={busy || loadingSkeleton}
                       onClick={() => {
                         setSkillsOpen(false);
-                        const currentDraft = text.trim();
-                        const lastUserMsg = [...msgs].reverse().find((m) => m.role === "user")?.text;
-                        if (currentDraft) {
-                          setText("");
-                          send(
-                            `Verify macros for this meal log (run 4 independent calculation passes, double-check against the database, and add "Verified ✓"):\n${currentDraft}`
-                          );
-                        } else if (lastUserMsg) {
-                          send(
-                            `Verify macros for my last meal log (run 4 independent calculation passes, double-check every item and total against the database, and add "Verified ✓"):\n${lastUserMsg}`
-                          );
-                        } else {
-                          send(
-                            `Verify macros: run 4 independent calculation passes for every macro total and add "Verified ✓" once they all match.`
-                          );
-                        }
+                        send("/verify-macros");
                       }}
                       className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/10 text-left transition-colors cursor-pointer disabled:opacity-40"
                     >
@@ -858,13 +843,83 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       </span>
                       <div className="min-w-0">
                         <div className="text-[12.5px] font-semibold text-[var(--ui-text)] leading-tight">
-                          Verify Macros
+                          /verify-macros
                         </div>
                         <div className="text-[10.5px] text-[var(--ui-muted)] leading-snug mt-0.5">
                           4-pass verification &amp; DB cross-check
                         </div>
                       </div>
                     </button>
+
+                    {bot.id === "madrix-macros" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSkillsOpen(false);
+                            setText("/Add ");
+                            textareaRef.current?.focus();
+                          }}
+                          className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/10 text-left transition-colors cursor-pointer"
+                        >
+                          <span className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="material-symbols-outlined text-[17px]">add_circle</span>
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-semibold text-[var(--ui-text)] leading-tight">
+                              /Add
+                            </div>
+                            <div className="text-[10.5px] text-[var(--ui-muted)] leading-snug mt-0.5">
+                              Add a food or meal to your table
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSkillsOpen(false);
+                            setText("/Update ");
+                            textareaRef.current?.focus();
+                          }}
+                          className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/10 text-left transition-colors cursor-pointer"
+                        >
+                          <span className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="material-symbols-outlined text-[17px]">edit</span>
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-semibold text-[var(--ui-text)] leading-tight">
+                              /Update
+                            </div>
+                            <div className="text-[10.5px] text-[var(--ui-muted)] leading-snug mt-0.5">
+                              Update an existing food or brand item
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSkillsOpen(false);
+                            setText("/Search ");
+                            textareaRef.current?.focus();
+                          }}
+                          className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/10 text-left transition-colors cursor-pointer"
+                        >
+                          <span className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="material-symbols-outlined text-[17px]">search</span>
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-semibold text-[var(--ui-text)] leading-tight">
+                              /Search
+                            </div>
+                            <div className="text-[10.5px] text-[var(--ui-muted)] leading-snug mt-0.5">
+                              Search web for nutrition per 100g
+                            </div>
+                          </div>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}
