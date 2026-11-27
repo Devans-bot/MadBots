@@ -34,6 +34,7 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
   const [gender, setGender] = useState<"male" | "female">("male");
   const [activity, setActivity] = useState("moderate");
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [calculatingBmi, setCalculatingBmi] = useState(false);
   const [bmiInfo, setBmiInfo] = useState<{ bmi: number; category: string; tdee: number } | null>(null);
 
   const [dietType, setDietType] = useState("veg");
@@ -100,29 +101,36 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
   const submitQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     setQuizError(null);
-    const res = await fetch("/api/macros/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "custom",
-        height_cm: Number(heightCm),
-        weight_kg: Number(weightKg),
-        age: Number(age),
-        gender,
-        activity_level: activity,
-      }),
-    });
-    const d = await res.json().catch(() => null);
-    if (!res.ok) {
-      setQuizError(d?.error || "Invalid values. Please check your inputs.");
-      return;
+    setCalculatingBmi(true);
+    try {
+      const res = await fetch("/api/macros/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "custom",
+          height_cm: Number(heightCm),
+          weight_kg: Number(weightKg),
+          age: Number(age),
+          gender,
+          activity_level: activity,
+        }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) {
+        setQuizError(d?.error || "Invalid values. Please check your inputs.");
+        return;
+      }
+      setBmiInfo({
+        bmi: d.profile.bmi,
+        category: d.bmiCategory || "Normal",
+        tdee: d.profile.tdee,
+      });
+      setFlowStep("diet_notes");
+    } catch {
+      setQuizError("Network error while calculating BMI. Please try again.");
+    } finally {
+      setCalculatingBmi(false);
     }
-    setBmiInfo({
-      bmi: d.profile.bmi,
-      category: d.bmiCategory || "Normal",
-      tdee: d.profile.tdee,
-    });
-    setFlowStep("diet_notes");
   };
 
   const handleGeneratePlan = async (e: React.FormEvent) => {
@@ -404,9 +412,10 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-[#0066ff] text-white font-bold text-[13px] cursor-pointer"
+                  disabled={calculatingBmi}
+                  className="w-full py-2.5 rounded-xl bg-[#0066ff] text-white font-bold text-[13px] disabled:opacity-60 cursor-pointer"
                 >
-                  Calculate BMI &amp; Maintenance
+                  {calculatingBmi ? "Calculating BMI..." : "Calculate BMI & Maintenance"}
                 </button>
               </form>
             )}
@@ -454,10 +463,11 @@ export function MacroChiefV2Controls({ onSendMessage }: MacroChiefV2ControlsProp
                   </label>
                   <textarea
                     rows={3}
-                    value={`${allergies}${goalNotes ? `\n${goalNotes}` : ""}`}
+                    value={allergies}
                     onChange={(e) => {
-                      setAllergies(e.target.value);
-                      setGoalNotes(e.target.value);
+                      const val = e.target.value;
+                      setAllergies(val);
+                      setGoalNotes(val);
                     }}
                     placeholder="e.g. No peanuts, fat loss goal, mild lactose sensitivity..."
                     className="w-full mt-1 px-3 py-2 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-sheet)] text-[13px]"

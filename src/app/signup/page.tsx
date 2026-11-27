@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -166,6 +167,16 @@ export default function SignupPage() {
             {loading ? "Creating account..." : "Create Account"}
           </button>
         </form>
+
+        <div className="my-4 flex items-center gap-3">
+          <div className="flex-1 h-px bg-[var(--ui-border)]" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ui-muted)]">
+            or
+          </span>
+          <div className="flex-1 h-px bg-[var(--ui-border)]" />
+        </div>
+
+        <OAuthButtons onError={(msg) => setError(msg)} />
 
         <p className="mt-5 text-center text-[12.5px] text-[var(--ui-muted)]">
           Already have an account?{" "}
