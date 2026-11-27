@@ -512,9 +512,11 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       {!isUser && idx > 0 && msgs[idx - 1]?.role === "user" && (
                         <div className="flex items-center gap-1.5 pl-4 text-[11.5px] text-[var(--ui-muted)] leading-none mb-0.5">
                           <span className="w-4 h-2.5 border-l-2 border-t-2 border-zinc-400/50 dark:border-zinc-500/50 rounded-tl-[4px] shrink-0 translate-y-0.5" />
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#5865F2] text-white flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-[9px] leading-none">person</span>
-                          </span>
+                          <img
+                            src={s.avatar || "/dps/dp-1.jpg"}
+                            alt="You"
+                            className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                          />
                           <span className="font-semibold text-zinc-700 dark:text-zinc-300 shrink-0">@You</span>
                           <span className="truncate opacity-80">{msgs[idx - 1].text}</span>
                         </div>
@@ -523,9 +525,11 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                       {/* Left Circular Avatar */}
                       <div className="shrink-0 pt-0.5">
                         {isUser ? (
-                          <div className="w-9 h-9 rounded-full bg-zinc-800 dark:bg-zinc-700 text-white flex items-center justify-center shadow-xs">
-                            <span className="material-symbols-outlined text-[18px]">person</span>
-                          </div>
+                          <img
+                            src={s.avatar || "/dps/dp-1.jpg"}
+                            alt="You"
+                            className="w-9 h-9 rounded-full object-cover border border-zinc-300 dark:border-zinc-600 shadow-xs"
+                          />
                         ) : bot.avatar ? (
                           <img
                             src={bot.avatar}

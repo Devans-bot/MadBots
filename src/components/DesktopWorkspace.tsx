@@ -6,6 +6,7 @@ import { useSettings } from "@/lib/settings";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { useVoiceChat } from "@/lib/useVoiceChat";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UserProfileSettingsCard } from "@/components/UserProfileSettingsCard";
 
 type Msg = {
   role: "user" | "model";
@@ -1156,6 +1157,9 @@ export function DesktopWorkspace({ agents, onAddAgentClick, onOpenMarketplace }:
               </div>
 
               <div className="flex flex-col gap-6">
+                {/* User Profile & Synced Apps */}
+                <UserProfileSettingsCard />
+
                 {/* MaDbotS Config */}
                 <section
                   className={`rounded-xl p-6 md:p-10 shadow-sm relative overflow-hidden transition-all duration-200 ${isDarkMode ? "bg-[#1c1f24]" : "bg-white"

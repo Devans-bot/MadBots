@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { BOTS, LEVELS, type Level } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UserProfileSettingsCard } from "@/components/UserProfileSettingsCard";
 
 const LEVEL_LABELS: Record<Level, string> = {
   minimal: "Low • Fast draft",
@@ -21,12 +22,27 @@ const LEVEL_PERCENTAGES: Record<Level, string> = {
 
 interface SettingsDrawerProps {
   onClose: () => void;
+  installedBotIds?: string[];
 }
 
-export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
+export function SettingsDrawer({ onClose, installedBotIds }: SettingsDrawerProps) {
   const { s, setTheme, setLevel } = useSettings();
   const [isSaved, setIsSaved] = useState(false);
+  const [fetchedBotIds, setFetchedBotIds] = useState<string[] | null>(null);
   const dark = s.theme === "dark";
+
+  useEffect(() => {
+    if (installedBotIds) return;
+    fetch("/api/bots")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (Array.isArray(d?.botIds)) setFetchedBotIds(d.botIds);
+      })
+      .catch(() => {});
+  }, [installedBotIds]);
+
+  const effectiveBotIds = installedBotIds ?? fetchedBotIds ?? [];
+  const installedBots = BOTS.filter((b) => effectiveBotIds.includes(b.id));
 
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartYRef = useRef<number | null>(null);
@@ -175,8 +191,16 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
               </div>
             </div>
 
-            {/* Thinking Level for Each Bot (Height reduced by 20%, all sliders blue) */}
-            {BOTS.map((bot) => {
+            {/* User Profile, Login Details, Synced Apps & DP Selector */}
+            <UserProfileSettingsCard />
+
+            {/* Thinking Level for Installed Bots Only */}
+            {installedBots.length === 0 ? (
+              <div className="bg-[var(--ui-card)] px-4 py-4 rounded-2xl border border-[var(--ui-border)] text-center text-[12.5px] text-[var(--ui-muted)]">
+                No bots installed yet. Add one from the Marketplace.
+              </div>
+            ) : (
+              installedBots.map((bot) => {
               const currentLevel = s.levels[bot.id] ?? bot.level;
               const isMacro = bot.id === "madrix-macros";
               const isBhima = bot.id === "bhima-coach";
@@ -303,7 +327,7 @@ export function SettingsDrawer({ onClose }: SettingsDrawerProps) {
                   </div>
                 </div>
               );
-            })}
+            }))}
 
             {/* Save Preferences & Sign Out */}
             <div className="pt-1 pb-6 space-y-2.5">

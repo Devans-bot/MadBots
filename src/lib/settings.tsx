@@ -2,11 +2,28 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { BOTS, type Level } from "./bots";
 
-type Settings = { theme: "light" | "dark"; levels: Record<string, Level> };
-type Ctx = { s: Settings; setTheme: (t: Settings["theme"]) => void; setLevel: (id: string, l: Level) => void };
+export const USER_DPS = [
+  "/dps/dp-1.jpg",
+  "/dps/dp-2.jpg",
+  "/dps/dp-3.jpg",
+  "/dps/dp-4.jpg",
+  "/dps/dp-5.jpg",
+] as const;
+
+type Settings = { theme: "light" | "dark"; levels: Record<string, Level>; avatar: string };
+type Ctx = {
+  s: Settings;
+  setTheme: (t: Settings["theme"]) => void;
+  setLevel: (id: string, l: Level) => void;
+  setAvatar: (url: string) => void;
+};
 
 const KEY = "madbots:settings";
-const base: Settings = { theme: "light", levels: Object.fromEntries(BOTS.map((b) => [b.id, b.level])) };
+const base: Settings = {
+  theme: "light",
+  levels: Object.fromEntries(BOTS.map((b) => [b.id, b.level])),
+  avatar: USER_DPS[0],
+};
 const C = createContext<Ctx | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -17,7 +34,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     let next: Settings = { ...base, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light" };
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (saved) next = { theme: saved.theme === "dark" ? "dark" : "light", levels: { ...base.levels, ...saved.levels } };
+      if (saved)
+        next = {
+          theme: saved.theme === "dark" ? "dark" : "light",
+          levels: { ...base.levels, ...saved.levels },
+          avatar: typeof saved.avatar === "string" && saved.avatar ? saved.avatar : USER_DPS[0],
+        };
     } catch {}
     setS(next);
     setReady(true);
@@ -37,6 +59,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     s,
     setTheme: (theme) => setS((p) => ({ ...p, theme })),
     setLevel: (id, l) => setS((p) => ({ ...p, levels: { ...p.levels, [id]: l } })),
+    setAvatar: (avatar) => setS((p) => ({ ...p, avatar })),
   };
   return <C.Provider value={value}>{children}</C.Provider>;
 }

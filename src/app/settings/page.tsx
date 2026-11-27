@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { BOTS, LEVELS, type Level } from "@/lib/bots";
 import { useSettings } from "@/lib/settings";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UserProfileSettingsCard } from "@/components/UserProfileSettingsCard";
 
 const LEVEL_LABELS: Record<Level, string> = {
   minimal: "Low • Fast draft",
@@ -23,8 +24,20 @@ const LEVEL_PERCENTAGES: Record<Level, string> = {
 export default function SettingsPage() {
   const { s, setTheme, setLevel } = useSettings();
   const [isSaved, setIsSaved] = useState(false);
+  const [installedBotIds, setInstalledBotIds] = useState<string[]>([]);
   const dark = s.theme === "dark";
   const pageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/bots")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (Array.isArray(d?.botIds)) setInstalledBotIds(d.botIds);
+      })
+      .catch(() => {});
+  }, []);
+
+  const installedBots = BOTS.filter((b) => installedBotIds.includes(b.id));
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -102,6 +115,9 @@ export default function SettingsPage() {
               </svg>
             </div>
 
+            {/* User Profile & Synced Apps */}
+            <UserProfileSettingsCard />
+
             {/* Section 1: Dark Mode Switch */}
             <div className="settings-card bg-[var(--ui-card)] p-5 rounded-2xl shadow-sm space-y-4 border border-[var(--ui-border)]">
               <div className="flex items-center justify-between">
@@ -136,7 +152,13 @@ export default function SettingsPage() {
             </div>
 
             {/* Section 2: Thinking Level for Each Bot */}
-            {BOTS.map((bot) => {
+            {/* Section 2: Installed Bots */}
+            {installedBots.length === 0 ? (
+              <div className="bg-[var(--ui-card)] p-5 rounded-2xl border border-[var(--ui-border)] text-center text-[13px] text-[var(--ui-muted)]">
+                No bots installed yet. Add one from the Marketplace.
+              </div>
+            ) : (
+              installedBots.map((bot) => {
               const currentLevel = s.levels[bot.id] ?? bot.level;
               const isMacro = bot.id === "madrix-macros";
               const isBhima = bot.id === "bhima-coach";
@@ -256,7 +278,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
               );
-            })}
+            }))}
 
             {/* Section 3: Action Buttons */}
             <div className="pt-2 pb-6 space-y-3">

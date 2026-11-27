@@ -369,7 +369,7 @@ export default function Home() {
 
       {/* Settings Drawer sliding up over bottom 10px of MainHeader (Mobile only) */}
       {showSettings && (
-        <SettingsDrawer onClose={() => setShowSettings(false)} />
+        <SettingsDrawer installedBotIds={userBotIds} onClose={() => setShowSettings(false)} />
       )}
       </div>
 
