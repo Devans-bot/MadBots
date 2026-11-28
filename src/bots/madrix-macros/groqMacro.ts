@@ -148,13 +148,17 @@ export async function callGroqMacroChief(
 
   const start = performance.now();
   const modelsToTry = Array.from(new Set((customModels || DEFAULT_MODELS).filter(Boolean)));
-  // Load lean system prompt with tracking rules & personal food database (BK attached only if mentioned)
-  const recentText = messages.slice(-4).map((m) => m.text || m.content || "").join(" ");
+  // Scope meal logging to the current message only unless the user asks for a combined total
+  const lastText = String(messages[messages.length - 1]?.text || messages[messages.length - 1]?.content || "");
+  const wantsCombined = /\b(combine|combined|total|all meals|so far|today)\b/i.test(lastText);
+  const slicedMessages = wantsCombined ? messages.slice(-4) : messages.slice(-1);
+
+  const recentText = slicedMessages.map((m) => m.text || m.content || "").join(" ");
   const systemPrompt = getCompactMacrosPrompt(recentText);
 
   const conversationMessages: GroqApiMessage[] = [
     { role: "system", content: systemPrompt },
-    ...messages.slice(-4).map((m) => ({
+    ...slicedMessages.map((m) => ({
       role: (m.role === "model" || m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
       content: String(m.text || m.content || ""),
     })),

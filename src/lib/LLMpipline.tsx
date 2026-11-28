@@ -5,7 +5,7 @@ import { PROMPTS } from "@/lib/prompts";
 import { generateWithFallback } from "@/lib/gemini";
 import { cleanReply } from "@/lib/formatReply";
 import { runSlashSkills } from "@/lib/skills";
-import { calculateMeals, isOwnerUser, type ParsedMealLog } from "@/lib/calculateMacros";
+import { calculateMeals, isOwnerUser, loadDatabases, type ParsedMealLog } from "@/lib/calculateMacros";
 import { MACROS_TOOLS, handleMacrosToolCall } from "@/bots/madrix-macros/tools";
 import { callGroqMacroChief } from "@/bots/madrix-macros/groqMacro";
 import { callGroqBhima } from "@/bots/bhima-coach/groqBhima";
@@ -74,11 +74,61 @@ const GROQ_CONFIG: Record<
 
 const PARSER_SOUL_PATH = path.join(process.cwd(), "src/bots/madrix-macros/macro_parser_soul.md");
 
+async function handleShowMyTableIntent(
+  userText: string,
+  userId?: string | null
+): Promise<{ handled: boolean; reply?: string }> {
+  const isShowTable =
+    /\b(show|list|view|get)\s+(me\s+)?(my\s+)?(food\s+)?(table|foods|db|database)\b/i.test(userText) ||
+    /^my\s+(food\s+)?table$/i.test(userText.trim());
+  if (!isShowTable) return { handled: false };
+  if (!userId) return { handled: true, reply: "Please sign in to view your food table." };
+
+  const db = await loadDatabases(userId);
+  if (db.size === 0) {
+    return {
+      handled: true,
+      reply: "Your food table is currently empty. Use `/Add` or `/Search` to add foods.",
+    };
+  }
+
+  const grouped = new Map<string, string[]>();
+  const labelMap: Record<string, string> = {
+    skill_add: "Added by You (/Add)",
+    brand: "Brand Items",
+    label: "Label Edits",
+    user_estimate: "User Estimates",
+    search: "From Web Search (/Search)",
+    common: "Common Foods",
+  };
+
+  for (const entry of db.values()) {
+    const cat = labelMap[entry.source] || entry.source || "Other";
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(
+      `- **${entry.name}** — ${entry.kcal} kcal, ${entry.protein}g protein (per 100g)`
+    );
+  }
+
+  const sections: string[] = [`### Your Food Table (${db.size} items)`];
+  for (const [cat, lines] of grouped.entries()) {
+    sections.push("", `**${cat} (${lines.length})**`, ...lines.slice(0, 40));
+    if (lines.length > 40) {
+      sections.push(`- ...and ${lines.length - 40} more`);
+    }
+  }
+
+  return { handled: true, reply: sections.join("\n") };
+}
+
 async function tryHybridMacrosPipeline(
   userText: string,
   signal: AbortSignal,
   userId?: string | null
 ): Promise<{ handled: boolean; reply?: string; computedItems?: unknown[] }> {
+  const showTable = await handleShowMyTableIntent(userText, userId);
+  if (showTable.handled) return showTable;
+
   const apiKey = process.env.GROQ_API_KEY_MACROS || process.env.GROQ_API_KEY;
   if (!apiKey || !userText.trim()) return { handled: false };
 
@@ -131,6 +181,10 @@ async function tryHybridMacrosPipeline(
     if (!rawJson) return { handled: false };
 
     const parsed = JSON.parse(rawJson) as ParsedMealLog;
+    if (parsed.needsClarification && parsed.clarificationQuestion) {
+      return { handled: true, reply: parsed.clarificationQuestion };
+    }
+
     const totalParsedItems = Array.isArray(parsed.meals)
       ? parsed.meals.reduce((acc, m) => acc + (Array.isArray(m.items) ? m.items.length : 0), 0)
       : 0;
@@ -138,23 +192,31 @@ async function tryHybridMacrosPipeline(
       return { handled: false };
     }
 
-    const { markdown, unmatched, items } = await calculateMeals(parsed, userId);
-    if (unmatched.length === 0 && items.length > 0) {
+    // Ambiguity check: e.g. "40gm eggs" -> ask instead of guessing
+    for (const grp of parsed.meals) {
+      for (const it of grp.items || []) {
+        if (/\begg\b/i.test(it.name) && it.unit === "g" && it.qty > 0 && it.qty <= 60) {
+          return {
+            handled: true,
+            reply: `"${it.qty}${it.unit} ${it.name}" is ambiguous — did you mean ${it.qty} g of egg or 1 whole egg?`,
+          };
+        }
+      }
+    }
+
+    const includeBk = /\b(burger\s*king|bk|whopper|makhani burst|paneer royale|crispy chicken|fiery chicken)\b/i.test(
+      userText
+    );
+    const { markdown, unmatched, items } = await calculateMeals(parsed, userId, { includeBk });
+
+    if (unmatched.length > 0) {
+      return { handled: true, reply: markdown };
+    }
+
+    if (items.length > 0) {
       return { handled: true, reply: markdown, computedItems: items };
     }
-    if (unmatched.length === 0 && items.length === 0) {
-      return { handled: false };
-    }
 
-    // Automatic routing rule for regular users: do not fall back to a guess
-    if (userId && !isOwnerUser(userId)) {
-      const missingMsg = unmatched
-        .map((u) => `${u.name} is not in your table. Use /Add to enter it, or /Search to look it up.`)
-        .join("\n");
-      return { handled: true, reply: missingMsg };
-    }
-
-    // Owner keeps fallback to full Macro-Chief LLM if any food item is not in local .txt DBs
     return { handled: false };
   } catch {
     return { handled: false };

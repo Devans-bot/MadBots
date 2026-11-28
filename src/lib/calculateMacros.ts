@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 export interface ParsedItem {
@@ -10,6 +8,8 @@ export interface ParsedItem {
 
 export interface ParsedMealLog {
   isNonMeal?: boolean;
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
   meals: { meal: number; items: ParsedItem[] }[];
 }
 
@@ -40,6 +40,11 @@ export interface ComputedMealItem {
   note: string;
 }
 
+export interface UnmatchedItemResult {
+  item: ParsedItem;
+  suggestion?: string;
+}
+
 const ZERO_PROTEIN_KEYWORDS = ["cooked rice", "rice", "cooked dal", "dal", "maggi"];
 
 const ALIASES: Record<string, string> = {
@@ -49,6 +54,7 @@ const ALIASES: Record<string, string> = {
   egg: "whole egg",
   eggs: "whole egg",
   "whole eggs": "whole egg",
+  "eggs whole": "whole egg",
   "boiled egg": "whole egg",
   "boiled eggs": "whole egg",
   soya: "soya chunks (dry)",
@@ -57,12 +63,16 @@ const ALIASES: Record<string, string> = {
   chicken: "chicken breast (raw)",
   "chicken breast": "chicken breast (raw)",
   rice: "cooked rice",
+  "rice cooked": "cooked rice",
   dal: "cooked dal",
+  "dal cooked": "cooked dal",
   goat: "goat meat (cooked)",
   mutton: "goat meat (cooked)",
   "aloo sabzi": "aloo sabji",
   chana: "roasted chana",
 };
+
+const KEEP_TRAILING_S = new Set(["oats", "fries", "chips", "nuggets", "chunks"]);
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const userCache = new Map<string, { db: Map<string, MacroEntry>; expiresAt: number }>();
@@ -80,106 +90,45 @@ export function clearMacroDbCache(userId?: string): void {
   userCache.clear();
 }
 
-function parseNumber(val?: string): number | null {
-  if (!val || val.toUpperCase() === "N/A") return null;
-  const m = val.match(/[\d.]+/);
-  return m ? parseFloat(m[0]) : null;
+export function normalizeFoodTokens(raw: string): string[] {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/[()[\]{},._/\\-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((tok) => {
+      if (KEEP_TRAILING_S.has(tok)) return tok;
+      if (tok.length > 3 && tok.endsWith("ies")) return tok.slice(0, -3) + "y";
+      if (tok.length > 3 && tok.endsWith("es") && !tok.endsWith("ses")) return tok.slice(0, -1);
+      if (tok.length > 3 && tok.endsWith("s") && !tok.endsWith("ss")) return tok.slice(0, -1);
+      return tok;
+    });
 }
 
-function loadFromLocalFiles(): Map<string, MacroEntry> {
-  const db = new Map<string, MacroEntry>();
-  const botDir = path.join(process.cwd(), "src/bots/madrix-macros");
+export function bagOfWordsKey(raw: string): string {
+  return [...normalizeFoodTokens(raw)].sort().join(" ");
+}
 
-  try {
-    const personalPath = path.join(botDir, "personal_food_macros.txt");
-    if (fs.existsSync(personalPath)) {
-      const lines = fs.readFileSync(personalPath, "utf-8").split("\n");
-      let inTable = false;
-      for (const rawLine of lines) {
-        const trimmed = rawLine.trim();
-        if (!trimmed) continue;
-        if (trimmed.startsWith("-------------------------")) {
-          inTable = true;
-          continue;
-        }
-        if (trimmed.startsWith("ADDITIONAL SERVING REFERENCES")) break;
-        if (!inTable) continue;
-
-        const cols = trimmed.split(/\s{2,}/);
-        if (cols.length < 4) continue;
-
-        const rawName = cols[0].trim();
-        const basisText = cols[1].trim().toLowerCase();
-        const kcal = parseNumber(cols[2]) ?? 0;
-        const protein = parseNumber(cols[3]) ?? 0;
-
-        let basis: MacroEntry["basis"] = "100g";
-        let servingSize = 100;
-        if (basisText.includes("ml")) {
-          basis = "100ml";
-          servingSize = parseNumber(basisText) ?? 100;
-        } else if (
-          basisText.includes("egg") ||
-          basisText.includes("pkt") ||
-          basisText.includes("pack") ||
-          basisText.includes("count")
-        ) {
-          basis = "count";
-          servingSize = 1;
-        } else {
-          basis = "100g";
-          servingSize = parseNumber(basisText) ?? 100;
-        }
-
-        db.set(rawName.toLowerCase(), {
-          name: rawName,
-          basis,
-          servingSize,
-          kcal,
-          protein,
-          countStapleProtein: false,
-          source: "Personal DB",
-        });
-      }
-    }
-  } catch (err) {
-    console.error("[calculateMacros] Error reading personal_food_macros.txt:", err);
+function diceSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const bigramsA = new Map<string, number>();
+  for (let i = 0; i < a.length - 1; i++) {
+    const bg = a.slice(i, i + 2);
+    bigramsA.set(bg, (bigramsA.get(bg) || 0) + 1);
   }
-
-  try {
-    const bkPath = path.join(botDir, "burger_king_selected_macros.txt");
-    if (fs.existsSync(bkPath)) {
-      const lines = fs.readFileSync(bkPath, "utf-8").split("\n");
-      for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith("Item |") || !line.includes("|")) continue;
-
-        const cols = line.split("|").map((s) => s.trim());
-        if (cols.length < 9) continue;
-
-        const rawName = cols[0];
-        const key = rawName.toLowerCase();
-        if (db.has(key)) continue;
-
-        const kcal = parseNumber(cols[2]) ?? 0;
-        const protein = parseNumber(cols[8]) ?? 0;
-
-        db.set(key, {
-          name: rawName,
-          basis: "serving",
-          servingSize: 1,
-          kcal,
-          protein,
-          countStapleProtein: false,
-          source: "BK India DB",
-        });
-      }
+  let intersection = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    const bg = b.slice(i, i + 2);
+    const count = bigramsA.get(bg) || 0;
+    if (count > 0) {
+      bigramsA.set(bg, count - 1);
+      intersection++;
     }
-  } catch (err) {
-    console.error("[calculateMacros] Error reading burger_king_selected_macros.txt:", err);
   }
-
-  return db;
+  return (2 * intersection) / (a.length - 1 + (b.length - 1));
 }
 
 export async function ensureUserFoodsSeeded(userId: string): Promise<void> {
@@ -243,7 +192,12 @@ export async function loadUserFoodsDb(userId: string): Promise<Map<string, Macro
       name,
       basis,
       servingSize: 100,
-      gramsPerPiece: row.grams_per_piece != null ? Number(row.grams_per_piece) : row.serving_g != null ? Number(row.serving_g) : null,
+      gramsPerPiece:
+        row.grams_per_piece != null
+          ? Number(row.grams_per_piece)
+          : row.serving_g != null
+            ? Number(row.serving_g)
+            : null,
       kcal: Number(row.kcal_per_100g) || 0,
       protein: Number(row.protein_per_100g) || 0,
       carbs: row.carbs_per_100g != null ? Number(row.carbs_per_100g) : null,
@@ -257,67 +211,87 @@ export async function loadUserFoodsDb(userId: string): Promise<Map<string, Macro
   return db;
 }
 
+/**
+ * Unified database loader: uses user_foods for ALL users including the owner.
+ */
 export async function loadDatabases(userId?: string | null): Promise<Map<string, MacroEntry>> {
-  // Regular signed-in users read ONLY from user_foods (never food_common or local .txt files)
-  if (userId && !isOwnerUser(userId)) {
-    return loadUserFoodsDb(userId);
-  }
+  if (!userId) return new Map();
+  return loadUserFoodsDb(userId);
+}
 
-  const cacheKey = userId ? `owner:${userId}` : "owner:local";
-  const cached = userCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.db;
-  }
+/**
+ * Matches a food name using:
+ * 1. Exact key & alias match
+ * 2. Word-order-independent & plural-stripped bag-of-words match (e.g. "rice cooked" -> "Cooked rice", "eggs whole" -> "Whole egg")
+ * 3. Token-subset match when unambiguous
+ * 4. Fuzzy similarity suggestion ("Did you mean X?") without false-matching
+ */
+export function findFoodMatchWithSuggestion(
+  db: Map<string, MacroEntry>,
+  rawName: string
+): { entry?: MacroEntry; suggestion?: string } {
+  const normalized = String(rawName || "").toLowerCase().trim();
+  if (!normalized) return {};
 
-  const supabase = getSupabaseAdmin();
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("food_macros")
-        .select("name, name_key, basis, serving_size, kcal, protein, source");
+  const queryBag = bagOfWordsKey(normalized);
+  const aliasTarget = ALIASES[normalized] ?? ALIASES[queryBag];
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const db = new Map<string, MacroEntry>();
-        for (const row of data) {
-          db.set(String(row.name_key).toLowerCase(), {
-            name: String(row.name),
-            basis: (row.basis as MacroEntry["basis"]) || "100g",
-            servingSize: Number(row.serving_size) || 100,
-            kcal: Number(row.kcal) || 0,
-            protein: Number(row.protein) || 0,
-            countStapleProtein: false,
-            source: row.source === "BK India DB" ? "BK India DB" : "Personal DB",
-          });
-        }
-        userCache.set(cacheKey, { db, expiresAt: Date.now() + CACHE_TTL_MS });
-        return db;
-      }
-    } catch (err) {
-      console.error("[calculateMacros] Supabase fetch failed, falling back to local files:", err);
+  // 1. Direct & alias match
+  const direct = db.get(normalized) ?? (aliasTarget ? db.get(aliasTarget) : undefined);
+  if (direct) return { entry: direct };
+
+  // 2. Bag-of-words match (ignores word order & plurals)
+  const queryTokens = normalizeFoodTokens(normalized);
+  for (const entry of db.values()) {
+    const entryBag = bagOfWordsKey(entry.name);
+    if (entryBag === queryBag) {
+      return { entry };
+    }
+    if (aliasTarget && bagOfWordsKey(aliasTarget) === entryBag) {
+      return { entry };
     }
   }
 
-  const localDb = loadFromLocalFiles();
-  userCache.set(cacheKey, { db: localDb, expiresAt: Date.now() + CACHE_TTL_MS });
-  return localDb;
+  // 3. All query tokens appear in entry tokens (only if query has >= 1 meaningful token and match is tight)
+  const subsetMatches: MacroEntry[] = [];
+  for (const entry of db.values()) {
+    const entryTokens = normalizeFoodTokens(entry.name);
+    if (
+      queryTokens.length > 0 &&
+      queryTokens.every((qt) => entryTokens.includes(qt)) &&
+      entryTokens.length - queryTokens.length <= 1
+    ) {
+      subsetMatches.push(entry);
+    }
+  }
+  if (subsetMatches.length === 1) {
+    return { entry: subsetMatches[0] };
+  }
+
+  // 4. Fuzzy similarity for "Did you mean X?" suggestion (threshold 0.55)
+  let bestScore = 0;
+  let bestName: string | undefined;
+  for (const entry of db.values()) {
+    const entryBag = bagOfWordsKey(entry.name);
+    const score = Math.max(
+      diceSimilarity(normalized, entry.name.toLowerCase()),
+      diceSimilarity(queryBag, entryBag)
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      bestName = entry.name;
+    }
+  }
+
+  if (bestScore >= 0.55 && bestName) {
+    return { suggestion: bestName };
+  }
+
+  return {};
 }
 
 export function findFoodMatch(db: Map<string, MacroEntry>, rawName: string): MacroEntry | undefined {
-  const normalized = String(rawName || "").toLowerCase().trim();
-  if (!normalized) return undefined;
-  const lookupKey = ALIASES[normalized] ?? normalized;
-  let entry = db.get(lookupKey) ?? db.get(normalized);
-
-  if (!entry) {
-    for (const [k, v] of db.entries()) {
-      if (k === lookupKey || (lookupKey.length >= 4 && k.includes(lookupKey))) {
-        entry = v;
-        break;
-      }
-    }
-  }
-
-  return entry;
+  return findFoodMatchWithSuggestion(db, rawName).entry;
 }
 
 export function computeItemMacros(entry: MacroEntry, qty: number, unit: string) {
@@ -346,10 +320,24 @@ export function computeItemMacros(entry: MacroEntry, qty: number, unit: string) 
   return { kcal, protein, carbs, fat, note };
 }
 
-export async function calculateMeals(parsed: ParsedMealLog, userId?: string | null) {
-  const db = await loadDatabases(userId);
+export async function calculateMeals(
+  parsed: ParsedMealLog,
+  userId?: string | null,
+  options?: { includeBk?: boolean }
+) {
+  const rawDb = await loadDatabases(userId);
+  const db = new Map<string, MacroEntry>();
+  const includeBk = Boolean(options?.includeBk);
+
+  for (const [k, v] of rawDb.entries()) {
+    const isBk = /burger\s*king|bk\s*india|whopper/i.test(`${v.name} ${v.source}`);
+    if (isBk && !includeBk) continue;
+    db.set(k, v);
+  }
+
   const rows: string[] = [];
   const unmatched: ParsedItem[] = [];
+  const unmatchedDetails: UnmatchedItemResult[] = [];
   const items: ComputedMealItem[] = [];
   const multiMeal = (parsed.meals?.length ?? 0) > 1;
 
@@ -358,10 +346,11 @@ export async function calculateMeals(parsed: ParsedMealLog, userId?: string | nu
 
   for (const group of parsed.meals || []) {
     for (const item of group.items || []) {
-      const entry = findFoodMatch(db, item.name);
+      const { entry, suggestion } = findFoodMatchWithSuggestion(db, item.name);
 
       if (!entry) {
         unmatched.push(item);
+        unmatchedDetails.push({ item, suggestion });
         continue;
       }
 
@@ -395,6 +384,50 @@ export async function calculateMeals(parsed: ParsedMealLog, userId?: string | nu
     }
   }
 
+  // Never show totals if ANY item is unmatched or if nothing was matched
+  if (unmatched.length > 0) {
+    const parts: string[] = [];
+    if (rows.length > 0) {
+      parts.push(
+        "### Matched Items (Partial — Total hidden until all items resolve)",
+        "| Food Item | Quantity | Calories | Protein | Notes |",
+        "| :--- | :--- | :--- | :--- | :--- |",
+        ...rows,
+        ""
+      );
+    }
+    parts.push("### Unmatched Items");
+    for (const u of unmatchedDetails) {
+      if (u.suggestion) {
+        parts.push(
+          `- **${u.item.name}** is not in your table. Did you mean **${u.suggestion}**? Or use \`/Add\` to enter it, or \`/Search\` to look it up.`
+        );
+      } else {
+        parts.push(
+          `- **${u.item.name}** is not in your table. Use \`/Add\` to enter it, or \`/Search\` to look it up.`
+        );
+      }
+    }
+
+    return {
+      markdown: parts.join("\n"),
+      unmatched,
+      unmatchedDetails,
+      items,
+      hasTotal: false,
+    };
+  }
+
+  if (items.length === 0) {
+    return {
+      markdown: "",
+      unmatched,
+      unmatchedDetails,
+      items,
+      hasTotal: false,
+    };
+  }
+
   const finalKcal = Math.round(totalKcal);
   const finalProtein = Number.isInteger(Number(totalProtein.toFixed(1)))
     ? String(Math.round(totalProtein))
@@ -411,5 +444,5 @@ export async function calculateMeals(parsed: ParsedMealLog, userId?: string | nu
     `${finalProtein}gm protein`,
   ].join("\n");
 
-  return { markdown, unmatched, items };
+  return { markdown, unmatched, unmatchedDetails, items, hasTotal: true };
 }

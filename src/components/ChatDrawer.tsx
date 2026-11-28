@@ -58,7 +58,7 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
   const [mounted, setMounted] = useState(false);
   const lastTapRef = useRef<{ [idx: number]: number }>({});
   const usedVoiceRef = useRef(false);
-  const sendVoiceRef = useRef<(spokenText: string) => void>(() => {});
+  const sendVoiceRef = useRef<(spokenText: string) => void>(() => { });
 
   useEffect(() => {
     setMounted(true);
@@ -522,211 +522,210 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                         </div>
                       )}
                       <div className="flex items-start gap-3 w-full">
-                      {/* Left Circular Avatar */}
-                      <div className="shrink-0 pt-0.5">
-                        {isUser ? (
-                          <img
-                            src={s.avatar || "/dps/dp-1.jpg"}
-                            alt="You"
-                            className="w-9 h-9 rounded-full object-cover border border-zinc-300 dark:border-zinc-600 shadow-xs"
-                          />
-                        ) : bot.avatar ? (
-                          <img
-                            src={bot.avatar}
-                            alt={bot.name}
-                            className="w-9 h-9 rounded-full object-cover border border-zinc-300 dark:border-zinc-600 shadow-xs"
-                          />
-                        ) : (
-                          <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-xs"
-                            style={{ background: bot.color }}
-                          >
-                            {bot.initial}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right Content Column */}
-                      <div className="flex-1 min-w-0 flex flex-col items-start text-left">
-                        {/* Author Header Line with bot name, timing on same line, and star + copy on right with pb-[5px] */}
-                        <div className="flex items-center justify-between w-full gap-2 pb-[5px]">
-                          <div className="flex items-center gap-1.5 flex-wrap leading-none">
-                            <span
-                              className={`leading-none ${isUser
-                                ? "font-semibold text-[14px] text-[var(--ui-text)]"
-                                : "font-headline font-bold text-[15.5px] text-[#0066ff] dark:text-[#66a3ff] tracking-tight"
-                                }`}
+                        {/* Left Circular Avatar */}
+                        <div className="shrink-0 pt-0.5">
+                          {isUser ? (
+                            <img
+                              src={s.avatar || "/dps/dp-1.jpg"}
+                              alt="You"
+                              className="w-9 h-9 rounded-full object-cover border border-zinc-300 dark:border-zinc-600 shadow-xs"
+                            />
+                          ) : bot.avatar ? (
+                            <img
+                              src={bot.avatar}
+                              alt={bot.name}
+                              className="w-9 h-9 rounded-full object-cover border border-zinc-300 dark:border-zinc-600 shadow-xs"
+                            />
+                          ) : (
+                            <div
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-xs"
+                              style={{ background: bot.color }}
                             >
-                              {isUser ? "You" : bot.name}
-                            </span>
-                            {!isUser && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9px] font-bold tracking-wide uppercase leading-none">
-                                APP
-                              </span>
-                            )}
-                            {!isUser && msg.verified && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/15 text-[#0066ff] dark:text-[#66a3ff] border border-[#0066ff]/25 text-[9px] font-bold leading-none">
-                                <span className="material-symbols-outlined text-[10px]">verified</span>
-                                <span>Verified</span>
-                              </span>
-                            )}
-                            <span className="text-[11px] font-normal text-[var(--ui-muted)] tabular-nums leading-none">
-                              Today at {timeStr}
-                            </span>
+                              {bot.initial}
+                            </div>
+                          )}
+                        </div>
 
-                            {/* Response timing on the exact same line as bot name and timestamp */}
-                            {!isUser && msg.responseTime && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--ui-muted)] font-mono leading-none select-none pl-0.5">
-                                <span className="text-[9px] opacity-75">⚡</span>
-                                <span>{msg.responseTime}</span>
-                              </span>
-                            )}
-
-                            {msg.starred && (
-                              <span className="inline-flex items-center text-amber-400 text-[11px] leading-none animate-in zoom-in-75 duration-200" title="Starred & Saved">
-                                ⭐
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Star and Three-Dot Menu (Copy + Voice Listen) at top-right */}
-                          <div className="flex items-center gap-1 shrink-0 relative">
-                            {/* Star Toggle Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleStar(idx);
-                              }}
-                              aria-label={msg.starred ? "Unstar message" : "Star message"}
-                              title={msg.starred ? "Unstar & remove from memory" : "Double-tap or click to star and save"}
-                              className={`p-0.5 rounded text-[11px] flex items-center justify-center transition-all cursor-pointer ${msg.starred ? "opacity-100 scale-110" : "opacity-35 hover:opacity-100"
-                                }`}
-                            >
-                              <span>{msg.starred ? "⭐" : "☆"}</span>
-                            </button>
-
-                            {/* Three-Dot Menu Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuIdx((prev) => (prev === idx ? null : idx));
-                              }}
-                              aria-label="Message actions"
-                              className="opacity-65 hover:opacity-100 p-1 rounded-full text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer shrink-0"
-                            >
-                              <span className="material-symbols-outlined text-[16px] leading-none">more_vert</span>
-                            </button>
-
-                            {openMenuIdx === idx && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 top-6 z-40 min-w-[110px] rounded-xl bg-[var(--ui-card)] border border-[var(--ui-border)] shadow-lg p-1 flex flex-col gap-0.5"
+                        {/* Right Content Column */}
+                        <div className="flex-1 min-w-0 flex flex-col items-start text-left">
+                          {/* Author Header Line with bot name, timing on same line, and star + copy on right with pb-[5px] */}
+                          <div className="flex items-center justify-between w-full gap-2 pb-[5px]">
+                            <div className="flex items-center gap-1.5 flex-wrap leading-none">
+                              <span
+                                className={`leading-none ${isUser
+                                  ? "font-semibold text-[14px] text-[var(--ui-text)]"
+                                  : "font-headline font-bold text-[15.5px] text-[#0066ff] dark:text-[#66a3ff] tracking-tight"
+                                  }`}
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    copyText(msg.text, idx);
-                                    setOpenMenuIdx(null);
-                                  }}
-                                  className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
+                                {isUser ? "You" : bot.name}
+                              </span>
+                              {!isUser && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] bg-[#5865F2] text-white text-[9px] font-bold tracking-wide uppercase leading-none">
+                                  APP
+                                </span>
+                              )}
+                              {!isUser && msg.verified && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#0066ff]/15 text-[#0066ff] dark:text-[#66a3ff] border border-[#0066ff]/25 text-[9px] font-bold leading-none">
+                                  <span className="material-symbols-outlined text-[10px]">verified</span>
+                                  <span>Verified</span>
+                                </span>
+                              )}
+                              <span className="text-[11px] font-normal text-[var(--ui-muted)] tabular-nums leading-none">
+                                Today at {timeStr}
+                              </span>
+
+                              {/* Response timing on the exact same line as bot name and timestamp */}
+                              {!isUser && msg.responseTime && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--ui-muted)] font-mono leading-none select-none pl-0.5">
+                                  <span className="text-[9px] opacity-75">⚡</span>
+                                  <span>{msg.responseTime}</span>
+                                </span>
+                              )}
+
+                              {msg.starred && (
+                                <span className="inline-flex items-center text-amber-400 text-[11px] leading-none animate-in zoom-in-75 duration-200" title="Starred & Saved">
+                                  ⭐
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Star and Three-Dot Menu (Copy + Voice Listen) at top-right */}
+                            <div className="flex items-center gap-1 shrink-0 relative">
+                              {/* Star Toggle Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleStar(idx);
+                                }}
+                                aria-label={msg.starred ? "Unstar message" : "Star message"}
+                                title={msg.starred ? "Unstar & remove from memory" : "Double-tap or click to star and save"}
+                                className={`p-0.5 rounded text-[11px] flex items-center justify-center transition-all cursor-pointer ${msg.starred ? "opacity-100 scale-110" : "opacity-35 hover:opacity-100"
+                                  }`}
+                              >
+                                <span>{msg.starred ? "⭐" : "☆"}</span>
+                              </button>
+
+                              {/* Three-Dot Menu Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuIdx((prev) => (prev === idx ? null : idx));
+                                }}
+                                aria-label="Message actions"
+                                className="opacity-65 hover:opacity-100 p-1 rounded-full text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                              >
+                                <span className="material-symbols-outlined text-[16px] leading-none">more_vert</span>
+                              </button>
+
+                              {openMenuIdx === idx && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 top-6 z-40 min-w-[110px] rounded-xl bg-[var(--ui-card)] border border-[var(--ui-border)] shadow-lg p-1 flex flex-col gap-0.5"
                                 >
-                                  <span className="material-symbols-outlined text-[14px]">
-                                    {copiedId === idx ? "check" : "content_copy"}
-                                  </span>
-                                  <span>{copiedId === idx ? "Copied" : "Copy"}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    speakText(msg.text, `msg-${idx}`, bot.id);
-                                    setOpenMenuIdx(null);
-                                  }}
-                                  className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
-                                >
-                                  <span className="material-symbols-outlined text-[14px] text-[#0066ff]">
-                                    {speakingId === `msg-${idx}` ? "stop_circle" : "volume_up"}
-                                  </span>
-                                  <span>{speakingId === `msg-${idx}` ? "Stop" : "Listen"}</span>
-                                </button>
-                              </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      copyText(msg.text, idx);
+                                      setOpenMenuIdx(null);
+                                    }}
+                                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">
+                                      {copiedId === idx ? "check" : "content_copy"}
+                                    </span>
+                                    <span>{copiedId === idx ? "Copied" : "Copy"}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      speakText(msg.text, `msg-${idx}`, bot.id);
+                                      setOpenMenuIdx(null);
+                                    }}
+                                    className="w-full px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 cursor-pointer text-left"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px] text-[#0066ff]">
+                                      {speakingId === `msg-${idx}` ? "stop_circle" : "volume_up"}
+                                    </span>
+                                    <span>{speakingId === `msg-${idx}` ? "Stop" : "Listen"}</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Message Text (Josefin Sans bubble for User, Nunito + Rubik bold for Bot) */}
+                          <div
+                            className={`w-full min-w-0 space-y-2 text-left text-[14px] font-normal text-[var(--ui-text)] ${isUser ? "mt-0.5 leading-[1.45]" : "mt-1 leading-relaxed"
+                              }`}
+                            style={{ fontFamily: isUser ? "var(--font-josefin)" : "var(--font-nunito)" }}
+                          >
+                            {(isUser ? msg.text.replace(/\n{2,}/g, "\n") : cleanReply(msg.text))
+                              .split(/(```[\s\S]*?```)/g)
+                              .map((segment, segIdx) => {
+                                if (segment.startsWith("```") && segment.endsWith("```")) {
+                                  const lines = segment.slice(3, -3).split("\n");
+                                  const lang = lines[0]?.trim() || "CODE";
+                                  const codeBody = (lines[0]?.trim() ? lines.slice(1) : lines).join("\n").trim();
+                                  return <CodeBlock key={segIdx} code={codeBody} language={lang} />;
+                                }
+                                const trimmed = segment.trim();
+                                if (!trimmed) return null;
+                                return (
+                                  <div key={segIdx}>
+                                    {isUser ? (
+                                      <div className="inline-block max-w-full whitespace-pre-wrap px-3 py-2 rounded-2xl rounded-tl-[4px] bg-[#f2f3f5] dark:bg-[#2b2d31] border border-zinc-200/80 dark:border-white/10 shadow-xs">
+                                        {trimmed}
+                                      </div>
+                                    ) : (
+                                      <ChatMarkdown content={trimmed} accentColor={botAccentColor} />
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                            {!isUser && msg.computedItems && msg.computedItems.length > 0 && (
+                              <button
+                                type="button"
+                                disabled={msg.loggedToToday}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const r = await fetch("/api/macros/log", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ items: msg.computedItems }),
+                                  });
+                                  if (r.ok) {
+                                    setMsgs((prev) =>
+                                      prev.map((m, i) => (i === idx ? { ...m, loggedToToday: true } : m))
+                                    );
+                                    showToast("Logged to today's meals!");
+                                  }
+                                }}
+                                className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer disabled:opacity-60"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">
+                                  {msg.loggedToToday ? "check_circle" : "add_task"}
+                                </span>
+                                <span>{msg.loggedToToday ? "Logged today" : "Log to today's meals"}</span>
+                              </button>
+                            )}
+
+                            {!isUser && msg.isError && msg.retryPrompt && (
+                              <button
+                                type="button"
+                                onClick={() => handleRetry(idx, msg.retryPrompt!)}
+                                disabled={busy}
+                                className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[var(--ui-muted)] hover:text-[#0066ff] hover:bg-[#0066ff]/10 transition-colors cursor-pointer disabled:opacity-40"
+                                title="Retry message"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">refresh</span>
+                                <span>Retry</span>
+                              </button>
                             )}
                           </div>
                         </div>
-
-                        {/* Message Text (Josefin Sans bubble for User, Nunito + Rubik bold for Bot) */}
-                        <div
-                          className={`w-full min-w-0 space-y-2 text-left text-[14px] font-normal text-[var(--ui-text)] ${
-                            isUser ? "mt-0.5 leading-[1.45]" : "mt-1 leading-relaxed"
-                          }`}
-                          style={{ fontFamily: isUser ? "var(--font-josefin)" : "var(--font-nunito)" }}
-                        >
-                          {(isUser ? msg.text.replace(/\n{2,}/g, "\n") : cleanReply(msg.text))
-                            .split(/(```[\s\S]*?```)/g)
-                            .map((segment, segIdx) => {
-                              if (segment.startsWith("```") && segment.endsWith("```")) {
-                                const lines = segment.slice(3, -3).split("\n");
-                                const lang = lines[0]?.trim() || "CODE";
-                                const codeBody = (lines[0]?.trim() ? lines.slice(1) : lines).join("\n").trim();
-                                return <CodeBlock key={segIdx} code={codeBody} language={lang} />;
-                              }
-                              const trimmed = segment.trim();
-                              if (!trimmed) return null;
-                              return (
-                                <div key={segIdx}>
-                                  {isUser ? (
-                                    <div className="inline-block max-w-full whitespace-pre-wrap px-3 py-2 rounded-2xl rounded-tl-[4px] bg-[#f2f3f5] dark:bg-[#2b2d31] border border-zinc-200/80 dark:border-white/10 shadow-xs">
-                                      {trimmed}
-                                    </div>
-                                  ) : (
-                                    <ChatMarkdown content={trimmed} accentColor={botAccentColor} />
-                                  )}
-                                </div>
-                              );
-                            })}
-
-                          {!isUser && msg.computedItems && msg.computedItems.length > 0 && (
-                            <button
-                              type="button"
-                              disabled={msg.loggedToToday}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const r = await fetch("/api/macros/log", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ items: msg.computedItems }),
-                                });
-                                if (r.ok) {
-                                  setMsgs((prev) =>
-                                    prev.map((m, i) => (i === idx ? { ...m, loggedToToday: true } : m))
-                                  );
-                                  showToast("Logged to today's meals!");
-                                }
-                              }}
-                              className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer disabled:opacity-60"
-                            >
-                              <span className="material-symbols-outlined text-[13px]">
-                                {msg.loggedToToday ? "check_circle" : "add_task"}
-                              </span>
-                              <span>{msg.loggedToToday ? "Logged today" : "Log to today's meals"}</span>
-                            </button>
-                          )}
-
-                          {!isUser && msg.isError && msg.retryPrompt && (
-                            <button
-                              type="button"
-                              onClick={() => handleRetry(idx, msg.retryPrompt!)}
-                              disabled={busy}
-                              className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[var(--ui-muted)] hover:text-[#0066ff] hover:bg-[#0066ff]/10 transition-colors cursor-pointer disabled:opacity-40"
-                              title="Retry message"
-                            >
-                              <span className="material-symbols-outlined text-[13px]">refresh</span>
-                              <span>Retry</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
                       </div>
                     </article>
                   );
@@ -943,11 +942,10 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   aria-label="Open skills"
                   title="Skills"
                   onClick={() => setSkillsOpen((prev) => !prev)}
-                  className={`w-8 h-8 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer ${
-                    skillsOpen
-                      ? "bg-amber-500/15 text-amber-500"
-                      : "text-[var(--ui-muted)] hover:text-amber-500 hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
+                  className={`w-8 h-8 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer ${skillsOpen
+                    ? "bg-amber-500/15 text-amber-500"
+                    : "text-[var(--ui-muted)] hover:text-amber-500 hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
                 >
                   <span className="material-symbols-outlined text-[20px]">bolt</span>
                 </button>
@@ -976,13 +974,12 @@ export function ChatDrawer({ botId, onClose }: ChatDrawerProps) {
                   disabled={busy || loadingSkeleton || transcribing}
                   aria-label={recording ? "Stop voice recording" : "Voice input"}
                   title={recording ? "Listening... tap to stop" : "Tap to speak"}
-                  className={`relative w-9 h-9 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer disabled:opacity-40 ${
-                    recording
-                      ? "bg-red-500 text-white shadow-sm ring-4 ring-red-500/30"
-                      : transcribing
+                  className={`relative w-9 h-9 mb-0.5 rounded-[14px] flex items-center justify-center transition-all shrink-0 active:scale-90 cursor-pointer disabled:opacity-40 ${recording
+                    ? "bg-red-500 text-white shadow-sm ring-4 ring-red-500/30"
+                    : transcribing
                       ? "bg-amber-500/20 text-amber-500 animate-pulse"
                       : "text-[var(--ui-muted)] hover:text-[var(--ui-text)] hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
+                    }`}
                 >
                   {recording && (
                     <span className="absolute inset-0 rounded-[14px] ring-2 ring-red-500 animate-ping opacity-75 pointer-events-none" />
